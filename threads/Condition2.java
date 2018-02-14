@@ -66,7 +66,7 @@ public class Condition2 {
 		if (!waitQueue.isEmpty())
 		{
 			// Get the first thread queue inside that list
-			ThreadQueue oldestThread = waitQueue.getFirst();
+			ThreadQueue oldestThread = waitQueue.removeFirst();
 
 			// Disable machine interrupts
 			Machine.interrupt().disable();
@@ -77,7 +77,6 @@ public class Condition2 {
 			// Re-enable machine interrupts
 			Machine.interrupt().enable();
 		}
-
     }
 
     /**
@@ -86,7 +85,7 @@ public class Condition2 {
      */
     public void wakeAll() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
-		
+
 		// While the wait queue is not empty
 		while (!waitQueue.isEmpty())
 		{
