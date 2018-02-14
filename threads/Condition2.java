@@ -2,6 +2,7 @@ package nachos.threads;
 
 import nachos.machine.*;
 
+import java.util.LinkedList;
 import java.util.Queue;
 
 /**
@@ -24,7 +25,6 @@ public class Condition2 {
      */
     public Condition2(Lock conditionLock) {
 		this.conditionLock = conditionLock;
-		conditionQueue = ThreadedKernel.scheduler.newThreadQueue(false);;
     }
 
     /**
@@ -36,20 +36,23 @@ public class Condition2 {
     public void sleep() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
 
+	    // Release the condition lock we have on this condition
+	    conditionLock.release();
+
 		// This function needs atomicity so we lock the machine
 		Machine.interrupt().disable();
 
-		// Release the condition lock we have on this condition
-		conditionLock.release();
+		// Add a new ThreadQueue to the waitQueue
+		waitQueue.add(ThreadedKernel.scheduler.newThreadQueue(false));
 
-	    // Wait for access for the current thread
-		conditionQueue.waitForAccess(KThread.currentThread());
+		// Put the thread to sleep while we wait
+		KThread.sleep();
+
+	    // Re-enable machine interrupts
+	    Machine.interrupt().enable();
 
 		// Acquire conditions for the above thread
 	    conditionLock.acquire();
-
-	    // Re-enable machine interrupts
-		Machine.interrupt().enable();
     }
 
     /**
@@ -59,7 +62,22 @@ public class Condition2 {
     public void wake() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
 
-		
+		// If the wait queue is not empty
+		if (!waitQueue.isEmpty())
+		{
+			// Get the first thread queue inside that list
+			ThreadQueue oldestThread = waitQueue.getFirst();
+
+			// Disable machine interrupts
+			Machine.interrupt().disable();
+
+			// Wake the first thread within that thread queue
+			oldestThread.nextThread().ready();
+
+			// Re-enable machine interrupts
+			Machine.interrupt().enable();
+		}
+
     }
 
     /**
@@ -67,9 +85,16 @@ public class Condition2 {
      * thread must hold the associated lock.
      */
     public void wakeAll() {
-	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+		
+		// While the wait queue is not empty
+		while (!waitQueue.isEmpty())
+		{
+			// Wake every single first thread until no threads remain
+			wake();
+		}
     }
 
     private Lock conditionLock;
-    public static ThreadQueue conditionQueue;
+    private LinkedList<ThreadQueue> waitQueue;
 }
