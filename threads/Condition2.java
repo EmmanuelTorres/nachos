@@ -3,7 +3,6 @@ package nachos.threads;
 import nachos.machine.*;
 
 import java.util.LinkedList;
-import java.util.Queue;
 
 /**
  * An implementation of condition variables that disables interrupt()s for
@@ -25,6 +24,7 @@ public class Condition2 {
      */
     public Condition2(Lock conditionLock) {
 		this.conditionLock = conditionLock;
+		this.waitQueue = new LinkedList<>();
     }
 
     /**
