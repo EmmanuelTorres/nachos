@@ -300,7 +300,7 @@ public class KThread {
 		joined = true;
 
 		// Add this thread to the join queue
-		joinQueue.acquire(this);
+		joinQueue.acquire(KThread.currentThread());
 
 		// Restore the old machine status
 		Machine.interrupt().enable();
