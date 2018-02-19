@@ -132,7 +132,7 @@ public class PriorityScheduler extends Scheduler {
 		{
 		    this.transferPriority = transferPriority;
 		    comparator = new PriorityComparator();
-		    priorityQueue = new java.util.PriorityQueue<ThreadState>(comparator);
+		    priorityQueue = new java.util.PriorityQueue<ThreadState>(10, comparator);
 		}
 
 		public void waitForAccess(KThread thread) {

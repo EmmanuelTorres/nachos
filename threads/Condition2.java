@@ -24,7 +24,7 @@ public class Condition2 {
      */
     public Condition2(Lock conditionLock) {
 		this.conditionLock = conditionLock;
-		this.waitQueue = new LinkedList<>();
+		this.waitQueue = new LinkedList<ThreadQueue>();
     }
 
     /**
