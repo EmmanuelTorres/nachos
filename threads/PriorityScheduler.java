@@ -2,9 +2,7 @@ package nachos.threads;
 
 import nachos.machine.*;
 
-import java.util.TreeSet;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.*;
 
 /**
  * A scheduler that chooses threads based on their priorities.
@@ -125,49 +123,77 @@ public class PriorityScheduler extends Scheduler {
     /**
      * A <tt>ThreadQueue</tt> that sorts threads by priority.
      */
-    protected class PriorityQueue extends ThreadQueue {
-	PriorityQueue(boolean transferPriority) {
-	    this.transferPriority = transferPriority;
-	}
+    protected class PriorityQueue extends ThreadQueue
+    {
+    	Comparator<ThreadState> comparator;
+    	java.util.PriorityQueue<ThreadState> priorityQueue;
 
-	public void waitForAccess(KThread thread) {
-	    Lib.assertTrue(Machine.interrupt().disabled());
-	    getThreadState(thread).waitForAccess(this);
-	}
+		PriorityQueue(boolean transferPriority)
+		{
+		    this.transferPriority = transferPriority;
+		    comparator = new PriorityComparator();
+		    priorityQueue = new java.util.PriorityQueue<ThreadState>(comparator);
+		}
 
-	public void acquire(KThread thread) {
-	    Lib.assertTrue(Machine.interrupt().disabled());
-	    getThreadState(thread).acquire(this);
-	}
+		public void waitForAccess(KThread thread) {
+		    Lib.assertTrue(Machine.interrupt().disabled());
+		    getThreadState(thread).waitForAccess(this);
+		}
 
-	public KThread nextThread() {
-	    Lib.assertTrue(Machine.interrupt().disabled());
-	    // implement me
-	    return null;
-	}
+		public void acquire(KThread thread) {
+		    Lib.assertTrue(Machine.interrupt().disabled());
+		    getThreadState(thread).acquire(this);
+		}
 
-	/**
-	 * Return the next thread that <tt>nextThread()</tt> would return,
-	 * without modifying the state of this queue.
-	 *
-	 * @return	the next thread that <tt>nextThread()</tt> would
-	 *		return.
-	 */
-	protected ThreadState pickNextThread() {
-	    // implement me
-	    return null;
-	}
-	
-	public void print() {
-	    Lib.assertTrue(Machine.interrupt().disabled());
-	    // implement me (if you want)
-	}
+		public KThread nextThread() {
+		    Lib.assertTrue(Machine.interrupt().disabled());
 
-	/**
-	 * <tt>true</tt> if this queue should transfer priority from waiting
-	 * threads to the owning thread.
-	 */
-	public boolean transferPriority;
+		    return priorityQueue.poll().thread;
+		}
+
+		/**
+		 * Return the next thread that <tt>nextThread()</tt> would return,
+		 * without modifying the state of this queue.
+		 *
+		 * @return	the next thread that <tt>nextThread()</tt> would
+		 *		return.
+		 */
+		protected ThreadState pickNextThread() {
+		    return priorityQueue.peek();
+		}
+
+		public void print() {
+		    Lib.assertTrue(Machine.interrupt().disabled());
+
+		    // implement me (if you want)
+		}
+
+		/**
+		 * <tt>true</tt> if this queue should transfer priority from waiting
+		 * threads to the owning thread.
+		 */
+		public boolean transferPriority;
+
+		public class PriorityComparator implements Comparator<ThreadState>
+		{
+			@Override
+			public int compare(ThreadState o1, ThreadState o2)
+			{
+				if (o1.priority == o2.priority)
+				{
+					return 0;
+
+				}
+				else if (o1.priority > o2.priority)
+				{
+					return -1;
+				}
+				else
+				{
+					return 1;
+				}
+			}
+		}
     }
 
     /**
@@ -178,84 +204,104 @@ public class PriorityScheduler extends Scheduler {
      * @see	nachos.threads.KThread#schedulingState
      */
     protected class ThreadState {
-	/**
-	 * Allocate a new <tt>ThreadState</tt> object and associate it with the
-	 * specified thread.
-	 *
-	 * @param	thread	the thread this state belongs to.
-	 */
-	public ThreadState(KThread thread) {
-	    this.thread = thread;
-	    
-	    setPriority(priorityDefault);
-	}
+	    /** The thread with which this object is associated. */
+	    protected KThread thread;
+	    /** The priority of the associated thread. */
+	    protected int priority;
 
-	/**
-	 * Return the priority of the associated thread.
-	 *
-	 * @return	the priority of the associated thread.
-	 */
-	public int getPriority() {
-	    return priority;
-	}
+	    // Holds the resources belonging to the ThreadState in order to
+	    // count the effective priority
+	    ArrayList<ThreadState> resourceList;
 
-	/**
-	 * Return the effective priority of the associated thread.
-	 *
-	 * @return	the effective priority of the associated thread.
-	 */
-	public int getEffectivePriority() {
-	    // implement me
-	    return priority;
-	}
+		/**
+		 * Allocate a new <tt>ThreadState</tt> object and associate it with the
+		 * specified thread.
+		 *
+		 * @param	thread	the thread this state belongs to.
+		 */
+		public ThreadState(KThread thread) {
+		    this.thread = thread;
+		    resourceList = new ArrayList<ThreadState>();
 
-	/**
-	 * Set the priority of the associated thread to the specified value.
-	 *
-	 * @param	priority	the new priority.
-	 */
-	public void setPriority(int priority) {
-	    if (this.priority == priority)
-		return;
-	    
-	    this.priority = priority;
-	    
-	    // implement me
-	}
+		    setPriority(priorityDefault);
+		}
 
-	/**
-	 * Called when <tt>waitForAccess(thread)</tt> (where <tt>thread</tt> is
-	 * the associated thread) is invoked on the specified priority queue.
-	 * The associated thread is therefore waiting for access to the
-	 * resource guarded by <tt>waitQueue</tt>. This method is only called
-	 * if the associated thread cannot immediately obtain access.
-	 *
-	 * @param	waitQueue	the queue that the associated thread is
-	 *				now waiting on.
-	 *
-	 * @see	nachos.threads.ThreadQueue#waitForAccess
-	 */
-	public void waitForAccess(PriorityQueue waitQueue) {
-	    // implement me
-	}
+		/**
+		 * Return the priority of the associated thread.
+		 *
+		 * @return	the priority of the associated thread.
+		 */
+		public int getPriority() {
+		    return priority;
+		}
 
-	/**
-	 * Called when the associated thread has acquired access to whatever is
-	 * guarded by <tt>waitQueue</tt>. This can occur either as a result of
-	 * <tt>acquire(thread)</tt> being invoked on <tt>waitQueue</tt> (where
-	 * <tt>thread</tt> is the associated thread), or as a result of
-	 * <tt>nextThread()</tt> being invoked on <tt>waitQueue</tt>.
-	 *
-	 * @see	nachos.threads.ThreadQueue#acquire
-	 * @see	nachos.threads.ThreadQueue#nextThread
-	 */
-	public void acquire(PriorityQueue waitQueue) {
-	    // implement me
-	}	
+		/**
+		 * Return the effective priority of the associated thread.
+		 *
+		 * @return	the effective priority of the associated thread.
+		 */
+		public int getEffectivePriority() {
+		    // implement me
+			int sum = 0;
 
-	/** The thread with which this object is associated. */	   
-	protected KThread thread;
-	/** The priority of the associated thread. */
-	protected int priority;
+			for (ThreadState threadState: resourceList)
+			{
+				sum += threadState.priority;
+			}
+
+		    return sum;
+		}
+
+		/**
+		 * Set the priority of the associated thread to the specified value.
+		 *
+		 * @param	priority	the new priority.
+		 */
+		public void setPriority(int priority) {
+		    this.priority = priority;
+
+		    // implement me
+		}
+
+		/**
+		 * Called when <tt>waitForAccess(thread)</tt> (where <tt>thread</tt> is
+		 * the associated thread) is invoked on the specified priority queue.
+		 * The associated thread is therefore waiting for access to the
+		 * resource guarded by <tt>waitQueue</tt>. This method is only called
+		 * if the associated thread cannot immediately obtain access.
+		 *
+		 * @param	waitQueue	the queue that the associated thread is
+		 *				now waiting on.
+		 *
+		 * @see	nachos.threads.ThreadQueue#waitForAccess
+		 */
+		public void waitForAccess(PriorityQueue waitQueue) {
+			// If the wait queue is not empty, aka it already has threads
+			// waiting on the locked resource then
+			if (!waitQueue.priorityQueue.isEmpty())
+			{
+				// We enqueue ourselves onto this queue and wait fairly
+				waitQueue.priorityQueue.add(this);
+			}
+			// Otherwise the wait queue is empty and we just set the thread to ready
+			else
+			{
+				this.thread.ready();
+			}
+		}
+
+		/**
+		 * Called when the associated thread has acquired access to whatever is
+		 * guarded by <tt>waitQueue</tt>. This can occur either as a result of
+		 * <tt>acquire(thread)</tt> being invoked on <tt>waitQueue</tt> (where
+		 * <tt>thread</tt> is the associated thread), or as a result of
+		 * <tt>nextThread()</tt> being invoked on <tt>waitQueue</tt>.
+		 *
+		 * @see	nachos.threads.ThreadQueue#acquire
+		 * @see	nachos.threads.ThreadQueue#nextThread
+		 */
+		public void acquire(PriorityQueue waitQueue) {
+			// implement me
+		}
     }
 }
