@@ -1,12 +1,16 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.PriorityQueue;
 
 /**
  * Uses the hardware timer to provide preemption, and to allow threads to sleep
  * until a certain time.
  */
 public class Alarm {
+
+    PriorityQueue<WaitingThread> WaitingQueue = new PriorityQueue<WaitingThread>();
+
     /**
      * Allocate a new Alarm. Set the machine's timer interrupt handler to this
      * alarm's callback.
@@ -26,8 +30,22 @@ public class Alarm {
      * thread to yield, forcing a context switch if there is another thread
      * that should be run.
      */
-    public void timerInterrupt() {
-	KThread.currentThread().yield();
+    public void timerInterrupt() 
+    {
+	   boolean intStatus = Machine.interrupt().disable();
+
+       if( WaitingQueue.peek() != null )
+       {
+           while( Machine.timer().getTime() >= WaitingQueue.peek().wakeUpTime )
+           {
+                WaitingThread wokenUp = WaitingQueue.poll();
+                wokenUp.thread.ready();
+           }
+       }
+
+       KThread.currentThread().yield();
+
+       Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -44,10 +62,29 @@ public class Alarm {
      *
      * @see	nachos.machine.Timer#getTime()
      */
-    public void waitUntil(long x) {
-	// for now, cheat just to get something working (busy waiting is bad)
-	long wakeTime = Machine.timer().getTime() + x;
-	while (wakeTime > Machine.timer().getTime())
-	    KThread.yield();
+    public void waitUntil(long offset)
+    {
+        boolean intStatus = Machine.interrupt().disable();
+        
+        long wakeTime = Machine.timer().getTime() + offset;
+        WaitingThread wt = new WaitingThread( wakeTime, KThread.currentThread() );
+        WaitingQueue.add(wt);
+        KThread.currentThread().sleep();
+
+        Machine.interrupt().restore(intStatus);
     }
+
+    public class WaitingThread
+    {
+        long wakeUpTime;
+        KThread thread;
+
+        WaitingThread( long wakeUpTime, KThread thread )
+        {
+            this.wakeUpTime = wakeUpTime;
+            this.thread = thread;
+        }
+    }
+
+
 }
