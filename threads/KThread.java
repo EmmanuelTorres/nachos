@@ -294,7 +294,7 @@ public class KThread {
 		joined = true;
 
 		// Add the current thread to the join queue
-		joinQueue.acquire(KThread.currentThread());
+		joinQueue.acquire(this);
 
 		// Wait for access on this thread
 		joinQueue.waitForAccess(this);
