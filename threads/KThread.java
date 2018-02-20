@@ -50,9 +50,6 @@ public class KThread {
 			readyQueue = ThreadedKernel.scheduler.newThreadQueue(false);
 			readyQueue.acquire(this);
 
-			// Initialize the joinQueue that will hold threads waiting on this thread
-			joinQueue = ThreadedKernel.scheduler.newThreadQueue(false);
-
 			currentThread = this;
 			tcb = TCB.currentTCB();
 			name = "main";
@@ -275,31 +272,30 @@ public class KThread {
 	 * call is not guaranteed to return. This thread must not be the current
 	 * thread.
 	 */
-	public void join() {
-		// Disable machine interrupts to allow for atomicity
-		// Atomicity is when someone can go uninterrupted
+	public void join()
+	{
+		// Disable the machine interrupts to allow for atomicity
 		Machine.interrupt().disable();
 
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
-		// If the current status is finished there is no need to join because
-		// the thread has nothing to wait for. It's redundant.
-		// A thread can also not call join on itself nor can it
-		// be joined more than one time.
-		Lib.assertTrue(this.status != statusFinished
-				&& this != currentThread
-				&& !joined);
+		// If the status of the thread is finished, a join will do nothing
+		if (this.status == statusFinished) return;
 
-		// Set the joined variable to true since we are joining right after this line
-		joined = true;
+		// If a thread tries to call join on itself, throw an error
+		Lib.assertTrue(this != currentThread);
 
-		// Add the current thread to the join queue
-		joinQueue.acquire(this);
+		if (joinQueue == null)
+		{
+			joinQueue = ThreadedKernel.scheduler.newThreadQueue(true);
 
-		// Wait for access on this thread
-		joinQueue.waitForAccess(this);
+			joinQueue.acquire(this);
+		}
 
-		// Restore the old machine status
+		joinQueue.waitForAccess(currentThread);
+
+		sleep();
+
 		Machine.interrupt().enable();
 	}
 
