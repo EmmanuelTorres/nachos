@@ -282,26 +282,22 @@ public class KThread {
 
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
-		// The same thing as calling Lib.assertTrue for these 2 conditions
-		// If the current status isn't finished, we can continue
-
 		// If the current status is finished there is no need to join because
-		// the thread has nothing to wait for. It's redunant.
-		// If we've already joined with this thread we don't want to join again
+		// the thread has nothing to wait for. It's redundant.
+		// A thread can also not call join on itself nor can it
+		// be joined more than one time.
 		Lib.assertTrue(this.status != statusFinished
+				&& this != currentThread
 				&& !joined);
-
-		// If the thread is trying to join itself, throw an exception
-		if (this == currentThread)
-		{
-			throw new RuntimeException();
-		}
 
 		// Set the joined variable to true since we are joining right after this line
 		joined = true;
 
 		// Add the current thread to the join queue
 		joinQueue.acquire(KThread.currentThread());
+
+		// Wait for access on this thread
+		joinQueue.waitForAccess(this);
 
 		// Restore the old machine status
 		Machine.interrupt().enable();
