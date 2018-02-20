@@ -24,7 +24,7 @@ public class Condition2 {
      */
     public Condition2(Lock conditionLock) {
 		this.conditionLock = conditionLock;
-		this.waitQueue = new LinkedList<ThreadQueue>();
+		this.waitQueue = new LinkedList<KThread>();
     }
 
     /**
@@ -42,11 +42,11 @@ public class Condition2 {
 		// This function needs atomicity so we lock the machine
 		Machine.interrupt().disable();
 
-		// Add a new ThreadQueue to the waitQueue
-		waitQueue.add(ThreadedKernel.scheduler.newThreadQueue(false));
+		// Add the current thread to the linked list
+		waitQueue.add(KThread.currentThread());
 
 		// Put the thread to sleep while we wait
-		KThread.sleep();
+		KThread.currentThread().sleep();
 
 	    // Re-enable machine interrupts
 	    Machine.interrupt().enable();
@@ -65,14 +65,11 @@ public class Condition2 {
 		// If the wait queue is not empty
 		if (!waitQueue.isEmpty())
 		{
-			// Get the first thread queue inside that list
-			ThreadQueue oldestThread = waitQueue.removeFirst();
-
 			// Disable machine interrupts
 			Machine.interrupt().disable();
 
 			// Wake the first thread within that thread queue
-			oldestThread.nextThread().ready();
+			waitQueue.pollFirst().ready();
 
 			// Re-enable machine interrupts
 			Machine.interrupt().enable();
@@ -95,5 +92,5 @@ public class Condition2 {
     }
 
     private Lock conditionLock;
-    private LinkedList<ThreadQueue> waitQueue;
+    private LinkedList<KThread> waitQueue;
 }

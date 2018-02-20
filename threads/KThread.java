@@ -292,9 +292,9 @@ public class KThread {
 			joinQueue.acquire(this);
 		}
 
-		joinQueue.waitForAccess(currentThread);
+//		joinQueue.waitForAccess(currentThread);
 
-		sleep();
+//		sleep();
 
 		Machine.interrupt().enable();
 	}

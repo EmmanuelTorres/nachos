@@ -1,6 +1,8 @@
 package nachos.threads;
 
 import nachos.machine.*;
+
+import java.util.Comparator;
 import java.util.PriorityQueue;
 
 /**
@@ -9,7 +11,7 @@ import java.util.PriorityQueue;
  */
 public class Alarm {
 
-    PriorityQueue<WaitingThread> WaitingQueue = new PriorityQueue<WaitingThread>();
+    PriorityQueue<WaitingThread> waitingQueue = new PriorityQueue<WaitingThread>(10, new WaitingComparator());
 
     /**
      * Allocate a new Alarm. Set the machine's timer interrupt handler to this
@@ -32,20 +34,19 @@ public class Alarm {
      */
     public void timerInterrupt() 
     {
-	   boolean intStatus = Machine.interrupt().disable();
+    	// Disable machine interrupts to allow for atomicity
+    	Machine.interrupt().disable();
 
-       if( WaitingQueue.peek() != null )
-       {
-           while( Machine.timer().getTime() >= WaitingQueue.peek().wakeUpTime )
-           {
-                WaitingThread wokenUp = WaitingQueue.poll();
-                wokenUp.thread.ready();
-           }
-       }
+    	while (!waitingQueue.isEmpty() &&
+			    Machine.timer().getTime() >= waitingQueue.peek().wakeUpTime)
+	    {
+	    	waitingQueue.poll().thread.ready();
+	    }
 
-       KThread.currentThread().yield();
+	    KThread.currentThread().yield();
 
-       Machine.interrupt().restore(intStatus);
+    	// Re-enable machine interrupts
+       Machine.interrupt().enable();
     }
 
     /**
@@ -64,14 +65,22 @@ public class Alarm {
      */
     public void waitUntil(long offset)
     {
-        boolean intStatus = Machine.interrupt().disable();
-        
-        long wakeTime = Machine.timer().getTime() + offset;
+	    // Disable machine interrupts to allow for atomicity
+	    Machine.interrupt().disable();
+
+	    // The minimum amount the machine time should be at before this thread is woken
+	    long wakeTime = Machine.timer().getTime() + offset;
+
+	    // Create a new thread with this value in mind
+	    // TODO: Replace this with a map instead of creating a new class
         WaitingThread wt = new WaitingThread( wakeTime, KThread.currentThread() );
-        WaitingQueue.add(wt);
+
+        waitingQueue.add(wt);
+
         KThread.currentThread().sleep();
 
-        Machine.interrupt().restore(intStatus);
+	    // Re-enable machine interrupts
+	    Machine.interrupt().enable();
     }
 
     public class WaitingThread
@@ -86,5 +95,24 @@ public class Alarm {
         }
     }
 
+    public class WaitingComparator implements Comparator<WaitingThread>
+    {
+        @Override
+        public int compare(WaitingThread o1, WaitingThread o2)
+        {
+            if (o1.wakeUpTime == o2.wakeUpTime)
+            {
+                return 0;
 
+            }
+            else if (o1.wakeUpTime < o2.wakeUpTime)
+            {
+                return -1;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+    }
 }
