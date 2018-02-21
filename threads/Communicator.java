@@ -60,6 +60,7 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
+        lock.acquire();
         isListening = true;
 	if(isSpeaking == false) {
             needSpeaker.sleep();
