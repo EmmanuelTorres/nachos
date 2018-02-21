@@ -43,6 +43,8 @@ public class KThread {
 	 * create an idle thread as well.
 	 */
 	public KThread() {
+		joinQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+
 		if (currentThread != null) {
 			tcb = new TCB();
 		}
@@ -277,25 +279,25 @@ public class KThread {
 		// Disable the machine interrupts to allow for atomicity
 		Machine.interrupt().disable();
 
+		// Default debug message -- leave this in
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
 		// If the status of the thread is finished, a join will do nothing
+		// so we return immediately
 		if (this.status == statusFinished) return;
 
 		// If a thread tries to call join on itself, throw an error
 		Lib.assertTrue(this != currentThread);
 
-		if (joinQueue == null)
-		{
-			joinQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+		joinQueue.acquire(currentThread);
 
-			joinQueue.acquire(this);
-		}
+		joinQueue.print();
 
-//		joinQueue.waitForAccess(currentThread);
+		joinQueue.waitForAccess(currentThread);
 
-//		sleep();
+		yield();
 
+		// Re-enable machine interrupts
 		Machine.interrupt().enable();
 	}
 
@@ -467,7 +469,4 @@ public class KThread {
 
 	// A queue to hold threads that have called join on this thread
 	private ThreadQueue joinQueue = null;
-
-	// A variable that holds whether or not joined has been called before
-	private boolean joined = false;
 }
