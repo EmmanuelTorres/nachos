@@ -22,7 +22,13 @@ public class Communicator {
     boolean ready;
 
     public Communicator() {
-        reset();
+        lock = new Lock();
+	needSpeaker = new Condition(lock);
+	needListener = new Condition(lock);
+        isSpeaking = false;
+	isListening = false;
+	message = 0;
+	ready = false;
     }
 
     /**
