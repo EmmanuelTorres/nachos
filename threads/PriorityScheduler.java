@@ -25,10 +25,17 @@ import java.util.*;
  * particular, priority must be donated through locks, and through joins.
  */
 public class PriorityScheduler extends Scheduler {
+	private PriorityQueue[] priorities = new PriorityQueue[priorityMaximum + 1];
+
     /**
      * Allocate a new priority scheduler.
      */
     public PriorityScheduler() {
+    	// Initialize each PriorityQueue inside our array
+    	for (PriorityQueue pq: priorities)
+	    {
+	    	pq = new PriorityQueue(true);
+	    }
     }
     
     /**
@@ -125,8 +132,12 @@ public class PriorityScheduler extends Scheduler {
      */
     protected class PriorityQueue extends ThreadQueue
     {
+    	// Comparator needed for holding a PriorityQueue based on priority
     	Comparator<ThreadState> comparator;
     	java.util.PriorityQueue<ThreadState> priorityQueue;
+    	// Used to signify who holds this currently Priority Queue
+	    // Can be overridden, which is why we use this instead of queue.peek()/poll()
+    	ThreadState queueHolder;
 
 		PriorityQueue(boolean transferPriority)
 		{
@@ -208,6 +219,7 @@ public class PriorityScheduler extends Scheduler {
 	    protected KThread thread;
 	    /** The priority of the associated thread. */
 	    protected int priority;
+	    protected int effectivePriority;
 
 	    // Holds the resources belonging to the ThreadState in order to
 	    // count the effective priority
@@ -241,14 +253,27 @@ public class PriorityScheduler extends Scheduler {
 		 * @return	the effective priority of the associated thread.
 		 */
 		public int getEffectivePriority() {
-		    // implement me
+			// This function needs to have atomicity so we aren't iterating through
+			// a changing list
+			Machine.interrupt().disable();
+		    // The sum of effective priorities depending on this thread
 			int sum = 0;
 
+			// Iterates through all a ThreadState's resources
+			// A resource is a thread that depends on this one
 			for (ThreadState threadState: resourceList)
 			{
-				sum += threadState.priority;
+				// Updates any thread that even remotely depends on this one
+				sum += threadState.getEffectivePriority();
 			}
 
+			// Set our effectivePriority variable
+			effectivePriority = sum;
+
+			// Re-enable the machine interrupts
+			Machine.interrupt().enable();
+
+			// Return the effective priority of this thread
 		    return sum;
 		}
 
@@ -258,9 +283,34 @@ public class PriorityScheduler extends Scheduler {
 		 * @param	priority	the new priority.
 		 */
 		public void setPriority(int priority) {
+			// ThreadState will hold its age if we mistakenly try to
+			// set its priority to a value it already holds
+			if (this.priority == priority)
+			{
+				return;
+			}
+
+			// Remove this ThreadState from the old priority queue
+			priorities[this.priority].priorityQueue.remove(this);
+
+			// Update the priority belonging to this ThreadState
 		    this.priority = priority;
 
-		    // implement me
+		    // Update the effective priority as well as normal priority
+		    this.effectivePriority = getEffectivePriority();
+
+		    // Add this ThreadState to its new priority
+		    priorities[this.priority].priorityQueue.add(this);
+
+		    // Check the priority if it needs to carry out priority donation at this point
+			// in the sense of all threads that want to give it
+			// Update priority is something we want to consider
+			// Remove thread from queue, put inside new queue of array
+			// Should call update priority in here
+
+			// Might want to maintain queues we're waiting on
+			// Check to see if they're not null, remove from that queue
+			// and then set our priority and add ourselves back into this queue
 		}
 
 		/**
@@ -276,6 +326,8 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
+			// Update priority on owner of waitQueue
+
 			// If the wait queue is not empty, aka it already has threads
 			// waiting on the locked resource then
 			if (!waitQueue.priorityQueue.isEmpty())
@@ -301,7 +353,26 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#nextThread
 		 */
 		public void acquire(PriorityQueue waitQueue) {
-			// implement me
+			Machine.interrupt().disable();
+
+			// Set ourselves as the owner of this PriorityQueue
+			waitQueue.queueHolder = this;
+
+			// At this point, nobody else should be holding the resource waitQueue
+			// We want to update our resources(?)
+
+			// Set the holder of waitQueue to our ThreadState
+
+			Machine.interrupt().enable();
+			// atomicity
+			// nobody else is holding this resource (waitQueue)
+			// Thread wants to get a hold of resource, call will only happen
+			// when interrupts are disabled and the waitQueue associated with a resource is empty
+			// If we're maintaining other stuff, like what thread is holding priority queue,
+			// Thread can hold multiple resource queues
+			// Update resources
+			// Set holder to ThreadState
+			// Have a queue, it holds PriorityQueues aka resources
 		}
     }
 }

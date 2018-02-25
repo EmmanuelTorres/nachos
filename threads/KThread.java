@@ -279,7 +279,6 @@ public class KThread {
 		// Disable the machine interrupts to allow for atomicity
 		Machine.interrupt().disable();
 
-		// Default debug message -- leave this in
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
 		// If the status of the thread is finished, a join will do nothing
@@ -289,13 +288,13 @@ public class KThread {
 		// If a thread tries to call join on itself, throw an error
 		Lib.assertTrue(this != currentThread);
 
+		// Let joinQueue know that a thread is depending on it
 		joinQueue.acquire(currentThread);
-
-		joinQueue.print();
-
 		joinQueue.waitForAccess(currentThread);
 
-		yield();
+		// Since the current thread is now waiting, we let the next thread
+		// in line get some execution time
+		currentThread.yield();
 
 		// Re-enable machine interrupts
 		Machine.interrupt().enable();
