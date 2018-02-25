@@ -22,7 +22,13 @@ public class Communicator {
     boolean ready;
 
     public Communicator() {
-        reset();
+        lock = new Lock();
+	needSpeaker = new Condition(lock);
+	needListener = new Condition(lock);
+        isSpeaking = false;
+	isListening = false;
+	message = 0;
+	ready = false;
     }
 
     /**
@@ -38,12 +44,14 @@ public class Communicator {
     public void speak(int word) {
         lock.acquire();
 	isSpeaking = true;
-	if(isListening == false) {
+	if(isListening == false || ready == true) {
             needListener.sleep();
 	}
         message = word;
 	ready = true;
         needSpeaker.wake();
+	isSpeaking = false;
+	lock.release();
         return;
     }
 
@@ -54,22 +62,17 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
+        lock.acquire();
         isListening = true;
-	if(isSpeaking == false) {
+	if(ready == false) {
+            needListener.wake();
             needSpeaker.sleep();
 	}
-        needListener.wake();
         int word = message;
-        reset();
-        return word;
-    }
-
-    private void reset() {
-        isSpeaking = false;
-	isListening = false;
 	message = 0;
 	ready = false;
+	isListening = false;
 	lock.release();
-	return;
+        return word;
     }
 }
