@@ -25,17 +25,10 @@ import java.util.*;
  * particular, priority must be donated through locks, and through joins.
  */
 public class PriorityScheduler extends Scheduler {
-	private PriorityQueue[] priorities = new PriorityQueue[priorityMaximum + 1];
-
     /**
      * Allocate a new priority scheduler.
      */
     public PriorityScheduler() {
-    	// Initialize each PriorityQueue inside our array
-    	for (PriorityQueue pq: priorities)
-	    {
-	    	pq = new PriorityQueue(true);
-	    }
     }
     
     /**
@@ -135,6 +128,7 @@ public class PriorityScheduler extends Scheduler {
     	// Comparator needed for holding a PriorityQueue based on priority
     	Comparator<ThreadState> comparator;
     	java.util.PriorityQueue<ThreadState> priorityQueue;
+
     	// Used to signify who holds this currently Priority Queue
 	    // Can be overridden, which is why we use this instead of queue.peek()/poll()
     	ThreadState queueHolder;
@@ -220,10 +214,11 @@ public class PriorityScheduler extends Scheduler {
 	    /** The priority of the associated thread. */
 	    protected int priority;
 	    protected int effectivePriority;
+	    protected int resourceSize = 0;
 
 	    // Holds the resources belonging to the ThreadState in order to
 	    // count the effective priority
-	    ArrayList<ThreadState> resourceList;
+	    java.util.PriorityQueue<PriorityQueue> resourceList;
 
 		/**
 		 * Allocate a new <tt>ThreadState</tt> object and associate it with the
@@ -233,7 +228,7 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public ThreadState(KThread thread) {
 		    this.thread = thread;
-		    resourceList = new ArrayList<ThreadState>();
+		    resourceList = new java.util.PriorityQueue<PriorityQueue>(10, new ResourceComparator());
 
 		    setPriority(priorityDefault);
 		}
@@ -256,25 +251,40 @@ public class PriorityScheduler extends Scheduler {
 			// This function needs to have atomicity so we aren't iterating through
 			// a changing list
 			Machine.interrupt().disable();
-		    // The sum of effective priorities depending on this thread
-			int sum = 0;
 
-			// Iterates through all a ThreadState's resources
-			// A resource is a thread that depends on this one
-			for (ThreadState threadState: resourceList)
+			// Set the highest priority belonging to this thread, as a default, to the minimum
+			int highestPriority = priorityMinimum;
+
+			// Iterate through all resources this Thread belongs to only if the sizes
+			// don't match
+			// This works as a pseudo-cache to reduce computations
+			if (resourceList.size() != resourceSize)
 			{
-				// Updates any thread that even remotely depends on this one
-				sum += threadState.getEffectivePriority();
+				for (PriorityQueue pq: resourceList)
+				{
+					// Get the highest priority
+					if (pq.priorityQueue.peek().priority > highestPriority)
+					{
+						highestPriority = pq.priorityQueue.peek().priority;
+					}
+				}
+
+				// Save the highest priority for later
+				effectivePriority = highestPriority;
+
+				// Save the size for future comparisons
+				resourceSize = resourceList.size();
+			}
+			else
+			{
+				// If the sizes are the same, get the old values
+				highestPriority = effectivePriority;
 			}
 
-			// Set our effectivePriority variable
-			effectivePriority = sum;
-
-			// Re-enable the machine interrupts
+			// Re-enable machine interrupts
 			Machine.interrupt().enable();
 
-			// Return the effective priority of this thread
-		    return sum;
+			return highestPriority;
 		}
 
 		/**
@@ -290,17 +300,12 @@ public class PriorityScheduler extends Scheduler {
 				return;
 			}
 
-			// Remove this ThreadState from the old priority queue
-			priorities[this.priority].priorityQueue.remove(this);
+			// Set the priority to the parameter value
+			this.priority = priority;
 
-			// Update the priority belonging to this ThreadState
-		    this.priority = priority;
-
-		    // Update the effective priority as well as normal priority
-		    this.effectivePriority = getEffectivePriority();
-
-		    // Add this ThreadState to its new priority
-		    priorities[this.priority].priorityQueue.add(this);
+			// Forces a refresh on priorities
+			resourceSize = -1;
+			getEffectivePriority();
 
 		    // Check the priority if it needs to carry out priority donation at this point
 			// in the sense of all threads that want to give it
@@ -326,20 +331,16 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
-			// Update priority on owner of waitQueue
+			Machine.interrupt().disable();
 
-			// If the wait queue is not empty, aka it already has threads
-			// waiting on the locked resource then
-			if (!waitQueue.priorityQueue.isEmpty())
-			{
-				// We enqueue ourselves onto this queue and wait fairly
-				waitQueue.priorityQueue.add(this);
-			}
-			// Otherwise the wait queue is empty and we just set the thread to ready
-			else
-			{
-				this.thread.ready();
-			}
+			// Add ourselves into the waitQueue for a resource
+			waitQueue.priorityQueue.add(this);
+
+			// Update priority on owner of waitQueue
+			// (Recommended by Santosh)
+			waitQueue.priorityQueue.peek().getEffectivePriority();
+
+			Machine.interrupt().enable();
 		}
 
 		/**
@@ -353,17 +354,19 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#nextThread
 		 */
 		public void acquire(PriorityQueue waitQueue) {
+			// Disable interrupts to allow for atomicity
 			Machine.interrupt().disable();
 
-			// Set ourselves as the owner of this PriorityQueue
+			// Set ourselves to the owner of this queue
 			waitQueue.queueHolder = this;
 
-			// At this point, nobody else should be holding the resource waitQueue
-			// We want to update our resources(?)
+			// Add this queue to our list of resources
+			resourceList.add(waitQueue);
 
-			// Set the holder of waitQueue to our ThreadState
-
+			// Re-enable machine interrupts
 			Machine.interrupt().enable();
+
+			// (Santosh notes)
 			// atomicity
 			// nobody else is holding this resource (waitQueue)
 			// Thread wants to get a hold of resource, call will only happen
@@ -374,5 +377,25 @@ public class PriorityScheduler extends Scheduler {
 			// Set holder to ThreadState
 			// Have a queue, it holds PriorityQueues aka resources
 		}
+
+	    public class ResourceComparator implements Comparator<PriorityQueue>
+	    {
+		    @Override
+		    public int compare(PriorityQueue o1, PriorityQueue o2)
+		    {
+		    	if (o1.priorityQueue.peek().priority == o2.priorityQueue.peek().priority)
+			    {
+			    	return 0;
+			    }
+			    else if (o1.priorityQueue.peek().priority < o2.priorityQueue.peek().priority)
+			    {
+			    	return 1;
+			    }
+			    else
+			    {
+			    	return -1;
+			    }
+		    }
+	    }
     }
 }
