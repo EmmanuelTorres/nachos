@@ -40,57 +40,57 @@ public class PriorityScheduler extends Scheduler {
      * @return	a new priority thread queue.
      */
     public ThreadQueue newThreadQueue(boolean transferPriority) {
-	return new PriorityQueue(transferPriority);
+		return new PriorityQueue(transferPriority);
     }
 
     public int getPriority(KThread thread) {
-	Lib.assertTrue(Machine.interrupt().disabled());
+		Lib.assertTrue(Machine.interrupt().disabled());
 		       
-	return getThreadState(thread).getPriority();
+		return getThreadState(thread).getPriority();
     }
 
     public int getEffectivePriority(KThread thread) {
-	Lib.assertTrue(Machine.interrupt().disabled());
+		Lib.assertTrue(Machine.interrupt().disabled());
 		       
-	return getThreadState(thread).getEffectivePriority();
+		return getThreadState(thread).getEffectivePriority();
     }
 
     public void setPriority(KThread thread, int priority) {
-	Lib.assertTrue(Machine.interrupt().disabled());
+		Lib.assertTrue(Machine.interrupt().disabled());
 		       
-	Lib.assertTrue(priority >= priorityMinimum &&
+		Lib.assertTrue(priority >= priorityMinimum &&
 		   priority <= priorityMaximum);
 	
-	getThreadState(thread).setPriority(priority);
+		getThreadState(thread).setPriority(priority);
     }
 
     public boolean increasePriority() {
-	boolean intStatus = Machine.interrupt().disable();
+		boolean intStatus = Machine.interrupt().disable();
 		       
-	KThread thread = KThread.currentThread();
+		KThread thread = KThread.currentThread();
 
-	int priority = getPriority(thread);
-	if (priority == priorityMaximum)
-	    return false;
+		int priority = getPriority(thread);
+		if (priority == priorityMaximum)
+	        return false;
 
-	setPriority(thread, priority+1);
+		setPriority(thread, priority+1);
 
-	Machine.interrupt().restore(intStatus);
-	return true;
+		Machine.interrupt().restore(intStatus);
+		return true;
     }
 
     public boolean decreasePriority() {
-	boolean intStatus = Machine.interrupt().disable();
-		       
-	KThread thread = KThread.currentThread();
+		boolean intStatus = Machine.interrupt().disable();
 
-	int priority = getPriority(thread);
-	if (priority == priorityMinimum)
-	    return false;
+		KThread thread = KThread.currentThread();
 
-	setPriority(thread, priority-1);
+		int priority = getPriority(thread);
+		if (priority == priorityMinimum)
+		    return false;
 
-	Machine.interrupt().restore(intStatus);
+		setPriority(thread, priority-1);
+
+		Machine.interrupt().restore(intStatus);
 	return true;
     }
 
@@ -153,7 +153,12 @@ public class PriorityScheduler extends Scheduler {
 		public KThread nextThread() {
 		    Lib.assertTrue(Machine.interrupt().disabled());
 
-		    return priorityQueue.poll().thread;
+		    if (!priorityQueue.isEmpty())
+		    {
+			    return priorityQueue.poll().thread;
+		    }
+
+		    return null;
 		}
 
 		/**
@@ -164,7 +169,12 @@ public class PriorityScheduler extends Scheduler {
 		 *		return.
 		 */
 		protected ThreadState pickNextThread() {
-		    return priorityQueue.peek();
+			if (priorityQueue.isEmpty())
+			{
+				return priorityQueue.peek();
+			}
+
+			return null;
 		}
 
 		public void print() {
@@ -218,7 +228,7 @@ public class PriorityScheduler extends Scheduler {
 
 	    // Holds the resources belonging to the ThreadState in order to
 	    // count the effective priority
-	    java.util.PriorityQueue<PriorityQueue> resourceList;
+	    private java.util.PriorityQueue<PriorityQueue> resourceList;
 
 		/**
 		 * Allocate a new <tt>ThreadState</tt> object and associate it with the
@@ -262,10 +272,13 @@ public class PriorityScheduler extends Scheduler {
 			{
 				for (PriorityQueue pq: resourceList)
 				{
-					// Get the highest priority
-					if (pq.priorityQueue.peek().priority > highestPriority)
+					if (!pq.priorityQueue.isEmpty())
 					{
-						highestPriority = pq.priorityQueue.peek().priority;
+						// Get the highest priority
+						if (pq.priorityQueue.peek().priority > highestPriority)
+						{
+							highestPriority = pq.priorityQueue.peek().priority;
+						}
 					}
 				}
 
@@ -293,6 +306,9 @@ public class PriorityScheduler extends Scheduler {
 		 * @param	priority	the new priority.
 		 */
 		public void setPriority(int priority) {
+			// Allow for atomicity for this function
+			Machine.interrupt().disable();
+
 			// ThreadState will hold its age if we mistakenly try to
 			// set its priority to a value it already holds
 			if (this.priority == priority)
@@ -306,6 +322,8 @@ public class PriorityScheduler extends Scheduler {
 			// Forces a refresh on priorities
 			resourceSize = -1;
 			getEffectivePriority();
+
+			Machine.interrupt().enable();
 
 		    // Check the priority if it needs to carry out priority donation at this point
 			// in the sense of all threads that want to give it
@@ -331,16 +349,14 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
-			Machine.interrupt().disable();
+			Lib.assertTrue(Machine.interrupt().disabled());
 
 			// Add ourselves into the waitQueue for a resource
 			waitQueue.priorityQueue.add(this);
 
 			// Update priority on owner of waitQueue
 			// (Recommended by Santosh)
-			waitQueue.priorityQueue.peek().getEffectivePriority();
-
-			Machine.interrupt().enable();
+			// waitQueue.priorityQueue.peek().getEffectivePriority();
 		}
 
 		/**
@@ -354,17 +370,18 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#nextThread
 		 */
 		public void acquire(PriorityQueue waitQueue) {
-			// Disable interrupts to allow for atomicity
 			Machine.interrupt().disable();
 
-			// Set ourselves to the owner of this queue
-			waitQueue.queueHolder = this;
+			Lib.assertTrue(Machine.interrupt().disabled());
+
+			if (waitQueue.queueHolder != this)
+			{
+				// Set ourselves to the owner of this queue
+				waitQueue.queueHolder = this;
+			}
 
 			// Add this queue to our list of resources
 			resourceList.add(waitQueue);
-
-			// Re-enable machine interrupts
-			Machine.interrupt().enable();
 
 			// (Santosh notes)
 			// atomicity
@@ -383,6 +400,11 @@ public class PriorityScheduler extends Scheduler {
 		    @Override
 		    public int compare(PriorityQueue o1, PriorityQueue o2)
 		    {
+		    	if (o1.priorityQueue.isEmpty() || o2.priorityQueue.isEmpty())
+			    {
+			    	return 1;
+			    }
+
 		    	if (o1.priorityQueue.peek().priority == o2.priorityQueue.peek().priority)
 			    {
 			    	return 0;
