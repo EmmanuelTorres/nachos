@@ -145,9 +145,25 @@ public class PriorityScheduler extends Scheduler {
 		    getThreadState(thread).waitForAccess(this);
 		}
 
-		public void acquire(KThread thread) {
-		    Lib.assertTrue(Machine.interrupt().disabled());
-		    getThreadState(thread).acquire(this);
+		public void acquire(KThread thread)
+		{
+			Lib.assertTrue(Machine.interrupt().disabled());
+
+			// Java is pass by value so we can't use the default line below
+			// getThreadState(thread).acquire(this);
+
+			ThreadState threadState = new ThreadState(thread);
+
+			threadState.resourceList.remove(this);
+
+			if (this.transferPriority)
+			{
+				this.queueHolder = threadState;
+			}
+
+			threadState.acquire(this);
+
+			// priorityQueue.add(threadState);
 		}
 
 		public KThread nextThread() {
@@ -265,6 +281,13 @@ public class PriorityScheduler extends Scheduler {
 			// Set the highest priority belonging to this thread, as a default, to the minimum
 			int highestPriority = priorityMinimum;
 
+			System.out.println("Size " + resourceList.size());
+
+			if (!resourceList.isEmpty())
+			{
+				System.out.println("!RL.IsEmpty " + resourceList.peek().priorityQueue.size());
+			}
+
 			// Iterate through all resources this Thread belongs to only if the sizes
 			// don't match
 			// This works as a pseudo-cache to reduce computations
@@ -272,8 +295,12 @@ public class PriorityScheduler extends Scheduler {
 			{
 				for (PriorityQueue pq: resourceList)
 				{
+					System.out.println("In Loop");
+
 					if (!pq.priorityQueue.isEmpty())
 					{
+						System.out.println("Deep loop");
+
 						// Get the highest priority
 						if (pq.priorityQueue.peek().priority > highestPriority)
 						{
@@ -306,9 +333,6 @@ public class PriorityScheduler extends Scheduler {
 		 * @param	priority	the new priority.
 		 */
 		public void setPriority(int priority) {
-			// Allow for atomicity for this function
-			Machine.interrupt().disable();
-
 			// ThreadState will hold its age if we mistakenly try to
 			// set its priority to a value it already holds
 			if (this.priority == priority)
@@ -322,8 +346,6 @@ public class PriorityScheduler extends Scheduler {
 			// Forces a refresh on priorities
 			resourceSize = -1;
 			getEffectivePriority();
-
-			Machine.interrupt().enable();
 
 		    // Check the priority if it needs to carry out priority donation at this point
 			// in the sense of all threads that want to give it
@@ -349,6 +371,8 @@ public class PriorityScheduler extends Scheduler {
 		 * @see	nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
+			Machine.interrupt().disable();
+
 			Lib.assertTrue(Machine.interrupt().disabled());
 
 			// Add ourselves into the waitQueue for a resource
@@ -380,8 +404,20 @@ public class PriorityScheduler extends Scheduler {
 				waitQueue.queueHolder = this;
 			}
 
-			// Add this queue to our list of resources
 			resourceList.add(waitQueue);
+
+			PriorityQueue copyPriorityQueue = new PriorityQueue(waitQueue.transferPriority);
+
+			for (ThreadState tempThreadState: waitQueue.priorityQueue)
+			{
+				// DO NOT call Collections.addAll on this because the server uses Java 1.6
+				copyPriorityQueue.priorityQueue.add(tempThreadState);
+
+				System.out.println("Copy Priority");
+			}
+
+			// Add this queue to our list of resources
+			resourceList.add(copyPriorityQueue);
 
 			// (Santosh notes)
 			// atomicity
