@@ -125,65 +125,84 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	protected class PriorityQueue extends ThreadQueue
 	{
+		// Determines whether or not effective priority matters
 		protected boolean transferPriority;
-		protected LinkedList<ThreadState> waitList;
-		protected ThreadState resourceOwner;
 
+		// The list of resources waiting inside this PriorityQueue
+		protected LinkedList<ThreadState> waitingResources;
+
+		// The resource that is the owner of this PriorityQueue
+		protected ThreadState resourceHolder;
+
+		// Determines whether or not we should update our effectivePriority
+		protected boolean updateNeeded;
+
+		// The "cached" effective priority
 		protected int effectivePriority;
 
+		// Set all the values declared above to their initial states
 		PriorityQueue(boolean transferPriority)
 		{
 			this.transferPriority = transferPriority;
-			this.waitList = new LinkedList<ThreadState>();
-			this.resourceOwner = null;
+			waitingResources = new LinkedList<ThreadState>();
+			resourceHolder = null;
+			updateNeeded = false;
+			effectivePriority = priorityMinimum;
 		}
 
-		public void waitForAccess(KThread thread) {
+		public void waitForAccess(KThread thread)
+		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
-			// Add the parameter thread to our waitList
-			waitList.add(getThreadState(thread));
+			// Finds the ThreadState belonging to this KThread thread
+			ThreadState threadState = getThreadState(thread);
+
+			// Add the parameter thread to our waitingResources
+			waitingResources.add(threadState);
 
 			// Add our priorityQueue to the parameter thread's waitResourceList
-			getThreadState(thread).waitForAccess(this);
+			threadState.waitForAccess(this);
 		}
 
 		public void acquire(KThread thread)
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
-			ThreadState threadState = getThreadState(thread);
+			ThreadState oldOwner = resourceHolder;
 
-			if (resourceOwner != null)
+			// If the old owner is not null
+			if (oldOwner != null)
 			{
-				// Remove this waitQueue from the old resourceOwner's resourceList
-				resourceOwner.resourceList.remove(this);
+				// Remove ourselves from the old owner's resourceList
+				oldOwner.resourceList.remove(this);
+
+				oldOwner.setPriorityFlag();
 			}
 
-			resourceOwner = threadState;
+			// Get the ThreadState of the new owner, the KThread thread in the parameter
+			ThreadState newOwner = getThreadState(thread);
 
-			threadState.acquire(this);
+			// Set the new resourceHolder as the newly created ThreadState
+			resourceHolder = newOwner;
+
+			// Acquire ourselves into the new owner's resourceList
+			newOwner.acquire(this);
 		}
 
 		public KThread nextThread()
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
-			// Iterate through the waitList and choose the one with the highest priority
-			if (!waitList.isEmpty())
+			// Get the thread with the largest priority belonging to this PriorityQueue
+			ThreadState largestPriority = pickNextThread();
+
+			// If it isn't null
+			if (largestPriority != null)
 			{
-				ThreadState largestPriority = waitList.get(0);
+				// Remove this ThreadState from our list of waitingResources
+				waitingResources.remove(largestPriority);
 
-				for (ThreadState currentThread: waitList)
-				{
-					if (currentThread.priority > largestPriority.priority)
-					{
-						largestPriority = currentThread;
-					}
-				}
-
-				waitList.remove(largestPriority);
-
+				// Acquire this new ThreadState as the new owner
 				acquire(largestPriority.thread);
 
 				return largestPriority.thread;
@@ -203,42 +222,41 @@ public class PriorityScheduler extends Scheduler {
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
-			// Iterate through the waitList and choose the one with the highest priority
-			if (!waitList.isEmpty())
-			{
-				ThreadState largestPriority = waitList.get(0);
+			ThreadState largestPriority = null;
 
-				for (ThreadState currentThread: waitList)
+			if (!waitingResources.isEmpty())
+			{
+				largestPriority = waitingResources.getFirst();
+
+				for (ThreadState currentState: waitingResources)
 				{
-					if (currentThread.getEffectivePriority() > largestPriority.priority)
+					if (currentState.getEffectivePriority() > largestPriority.priority)
 					{
-						largestPriority = currentThread;
+						largestPriority = currentState;
 					}
 				}
-
-				return largestPriority;
 			}
 
-			return null;
+			return largestPriority;
 		}
 
 		public int getEffectivePriority()
 		{
 			effectivePriority = priorityMinimum;
 
-			if (!waitList.isEmpty() && transferPriority)
+			if (transferPriority && updateNeeded)
 			{
-				ThreadState largestThread = waitList.get(0);
+				updateNeeded = false;
 
-				for (ThreadState currentThread: waitList)
+				for (ThreadState currentThread: waitingResources)
 				{
-					if (currentThread.priority > largestThread.priority)
+					int currentEffectivePriority = currentThread.getEffectivePriority();
+
+					if (currentEffectivePriority > effectivePriority)
 					{
-						largestThread = currentThread;
+						effectivePriority = currentEffectivePriority;
 					}
 				}
-
-				effectivePriority = largestThread.priority;
 			}
 
 			return effectivePriority;
@@ -270,8 +288,11 @@ public class PriorityScheduler extends Scheduler {
 		// The resources this ThreadState are waiting on
 		protected LinkedList<PriorityQueue> waitResourceList;
 
+		// Determines whether or not we should update our effectivePriority
+		protected boolean updateNeeded;
+
+		// The "cached" effective priority of this ThreadState
 		protected int effectivePriority = 0;
-		protected int resourceSize = 0;
 
 		/**
 		 * Allocate a new <tt>ThreadState</tt> object and associate it with the
@@ -284,6 +305,7 @@ public class PriorityScheduler extends Scheduler {
 			this.thread = thread;
 			this.resourceList = new LinkedList<PriorityQueue>();
 			this.waitResourceList = new LinkedList<PriorityQueue>();
+			this.updateNeeded = false;
 
 			setPriority(priorityDefault);
 		}
@@ -307,29 +329,50 @@ public class PriorityScheduler extends Scheduler {
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
-			effectivePriority = priority;
-
-			if (!resourceList.isEmpty())
+			// If we have no resources, the lowest possible effective priority we can have
+			// is the priority belonging to our thread
+			if (resourceList.isEmpty())
 			{
+				return priority;
+			}
+
+			//  If we need to override our priority
+			if (updateNeeded)
+			{
+				updateNeeded = false;
+
+				// Set our lowest possible priority
+				effectivePriority = priority;
+
+				// Find the highest priority of the resources we currently own
 				for (PriorityQueue currentQueue: resourceList)
 				{
-					effectivePriority = priority;
+					int currentEffectivePriority = currentQueue.getEffectivePriority();
 
-					int queuePriority = currentQueue.getEffectivePriority();
-
-					System.out.println("Comparing " + effectivePriority + " to " + queuePriority);
-					System.out.println(thread.getName() + " " + currentQueue.resourceOwner.thread.getName());
-
-					if (queuePriority > effectivePriority)
+					if (currentEffectivePriority > effectivePriority)
 					{
-						effectivePriority = queuePriority;
-
-						System.out.println("Setting EP to " + effectivePriority);
+						effectivePriority = currentEffectivePriority;
 					}
 				}
 			}
 
 			return effectivePriority;
+		}
+
+		// Updates the updateNeeded flag belonging to a PriorityQueue inside the resources we're waiting on
+		// Essentially, this makes it so the next time we call PriorityQueue.getEffectivePriority() we'll force
+		// a effectivePriority update if its set to true, otherwise we use the "cached" value
+		public void setPriorityFlag()
+		{
+			if (!updateNeeded)
+			{
+				updateNeeded = true;
+
+				for (PriorityQueue currentQueue : waitResourceList)
+				{
+					currentQueue.updateNeeded = true;
+				}
+			}
 		}
 
 		/**
@@ -341,15 +384,15 @@ public class PriorityScheduler extends Scheduler {
 			Lib.assertTrue(Machine.interrupt().disabled());
 
 			if (this.priority == priority)
-			{
 				return;
-			}
 
+			// Set our priority
 			this.priority = priority;
 
-			for (PriorityQueue pq: waitResourceList)
+			// Update the effective priorities for each of the resources we're waiting on
+			for (PriorityQueue currentQueue: waitResourceList)
 			{
-				pq.getEffectivePriority();
+				currentQueue.updateNeeded = true;
 			}
 
 			// (Santosh Notes)
@@ -380,14 +423,14 @@ public class PriorityScheduler extends Scheduler {
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
-			// Add the PriorityQueue into our waitResourceList
+			// Add the waitQueue into our waitResourceList
 			waitResourceList.add(waitQueue);
 
-//			if (waitQueue.resourceOwner != null)
-//			{
-//				// Update priority on owner of waitQueue
-//				getThreadState(waitQueue.resourceOwner.thread).getEffectivePriority();
-//			}
+			// Remove it from our resourceList because we're no longer in possession of it
+			resourceList.remove(waitQueue);
+
+			// Update the effective priority of the waitQueue
+			waitQueue.updateNeeded = true;
 
 			// (Santosh Notes)
 			// Update priority on owner of waitQueue
@@ -408,8 +451,14 @@ public class PriorityScheduler extends Scheduler {
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
 
+			// Add the waitQueue into the resourceList
 			resourceList.add(waitQueue);
-			this.waitResourceList.remove(waitQueue);
+
+			// Remove it from our waiting list of resources we want to own
+			waitResourceList.remove(waitQueue);
+
+			// Update the effective priority of the waitQueue
+			waitQueue.updateNeeded = true;
 
 			// (Santosh notes)
 			// atomicity
