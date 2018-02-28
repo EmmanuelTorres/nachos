@@ -4,12 +4,15 @@ import nachos.ag.BoatGrader;
 public class Boat
 {
 	static BoatGrader bg;
+	private static Communicator communicator;
 	private static Lock boatLock;
 	private static String boatLocation;
 	static private int totalAdults;
 	static private int totalChildren;
 	static private int adultsOnOahu;
 	static private int childrenOnOahu;
+	static private int adultsOnMolokai;
+	static private int childrenOnMolokai;
 
 	public static void selfTest()
 	{
@@ -18,7 +21,7 @@ public class Boat
 		BoatGrader b = new BoatGrader();
 
 		System.out.println("\n ***Testing Boats with only 2 children***");
-		begin(0, 2, b);
+		begin(1, 2, b);
 
 		// Put more test cases here in this format:
 		// System.out.println("\n ***Testing Boats with 5 children, 8 adults***");
@@ -34,6 +37,7 @@ public class Boat
 		// Instantiate global variables here
 		// All variables need to be static since the function calls are static
 
+		communicator = new Communicator();
 		boatLock = new Lock();
 		boatLocation = "Oahu";
 
@@ -73,20 +77,19 @@ public class Boat
 			childThread.setName("Child " + i);
 			childThread.fork();
 		}
+
+		// While the communicator sees that there are still threads on Oahu
+		while (communicator.listen() != (totalAdults + totalChildren))
+		{
+			if (communicator.listen() == (totalAdults + totalChildren))
+			{
+				break;
+			}
+		}
 	}
 
 	static void AdultItinerary()
 	{
-		// bg.initializeAdult(); //Required for autograder interface. Must be the first thing called.
-		//DO NOT PUT ANYTHING ABOVE THIS LINE.
-
-		/* This is where you should put your solutions. Make calls
-		   to the BoatGrader to show that it is synchronized. For
-		   example:
-		       bg.AdultRowToMolokai();
-		   indicates that an adult has rowed the boat across to Molokai
-		*/
-
 		/*
 		 * Adult Cases
 		 * Oahu
@@ -97,33 +100,49 @@ public class Boat
 		 *      1) Sleep
 		 */
 
-		while (adultsOnOahu >= 0 && childrenOnOahu >= 0)
+		while (true)
 		{
+			System.out.println("Adult Itinerary");
+
 			if (boatLocation.equals("Oahu"))
 			{
-				// If there is at least one child on Molokai to row the boat back
-				if (adultsOnOahu == 1 || childrenOnOahu != totalChildren)
+				if (childrenOnOahu <= 1)
 				{
-					// We acquire the lock so that no other thread can ride the boat
 					boatLock.acquire();
 
-					// We row ourselves to Molokai
 					bg.AdultRowToMolokai();
+
+					adultsOnOahu -= 1;
+					adultsOnMolokai += 1;
 
 					boatLocation = "Molokai";
 
-					adultsOnOahu -= 1;
+					if (totalChildren == childrenOnMolokai)
+					{
+						bg.ChildRowToOahu();
 
-					// We release the lock
+						childrenOnOahu += 1;
+						childrenOnMolokai -= 1;
+					}
+
 					boatLock.release();
+
+					break;
 				}
 			}
 			else if (boatLocation.equals("Molokai"))
 			{
-				// We sleep the thread since it no longer has to do anything
-				// TODO: Figure out a way to sleep this thread
+				if (totalAdults == adultsOnMolokai && totalChildren == childrenOnMolokai)
+				{
+					communicator.speak(3);
+				}
 			}
+
+			KThread.yield();
 		}
+
+		System.out.println("AOO: " + adultsOnOahu + ", COO: " + childrenOnOahu);
+		System.out.println("AOM: " + adultsOnMolokai + ", COM: " + childrenOnMolokai);
 	}
 
 	static void ChildItinerary()
@@ -131,102 +150,66 @@ public class Boat
 		// bg.initializeChild(); //Required for autograder interface. Must be the first thing called.
 		//DO NOT PUT ANYTHING ABOVE THIS LINE.
 
-	    /*
-	     * Oahu
-	     *      1) The number of total adults is the same as the number of adults on Molokai
-	     *          In this case, we sleep because the problem has been solved
-	     *      2) There aren't enough children on Molokai, so we sent more
-	     * Molokai
-	     *      1) End condition
-	     *      2) There are no adults on Molokai, so we just row children over repeatedly
-	     */
+		System.out.println("Child Itinerary");
 
-	    while (adultsOnOahu >= 0 && childrenOnOahu>= 0)
-	    {
-		    // If the boat is on Oahu
-		    if (boatLocation.equals("Oahu"))
-		    {
-			    // If all the adults are on Molokai, we are done with the program
-			    if ((totalAdults - adultsOnOahu) == 0)
-			    {
-				    boatLock.acquire();
+		while (true)
+		{
+			if (boatLocation.equals("Oahu"))
+			{
+				// If there are
+				if (childrenOnOahu >= 2)
+				{
+					boatLock.acquire();
 
-				    bg.ChildRowToMolokai();
+					bg.ChildRowToMolokai();
+					bg.ChildRideToMolokai();
 
-				    childrenOnOahu -= 1;
+					childrenOnOahu -= 2;
+					childrenOnMolokai += 2;
 
-				    // Since the boat is on Oahu, we can assume there have to be children on Oahu
-				    if (childrenOnOahu >= 2)
-				    {
-					    bg.ChildRideToMolokai();
+					boatLocation = "Molokai";
 
-					    childrenOnOahu -= 1;
-				    }
+					bg.ChildRowToOahu();
+					childrenOnOahu += 1;
+					childrenOnMolokai -= 1;
 
-				    boatLock.release();
-				    // Sleep
-				    // TODO: Figure out a way to sleep this thread
-			    }
-			    // If the number of children on Molokai is too low, we focus on getting more
-			    // children to Molokai
-			    else if ((totalChildren - childrenOnOahu) < 2)
-			    {
-				    // TODO: Fix this to make one child row back
-				    // Row more children to Molokai
-				    for (int i = childrenOnOahu; i < (totalChildren - childrenOnOahu); i++)
-				    {
-					    if (i % 2 == 0)
-					    {
-						    boatLock.acquire();
+					boatLocation = "Oahu";
 
-						    bg.ChildRowToMolokai();
-						    bg.ChildRideToMolokai();
+					boatLock.release();
 
-						    childrenOnOahu -= 2;
+					break;
+				}
+			}
+			else if (boatLocation.equals("Molokai"))
+			{
+				if (totalAdults == adultsOnMolokai)
+				{
+					if (totalChildren == childrenOnMolokai)
+					{
+						communicator.speak(3);
 
-						    boatLocation = "Molokai";
+						break;
+					}
+					else
+					{
+						boatLock.acquire();
 
-						    boatLock.release();
-					    }
-				    }
-			    }
-		    }
-		    // If the boat is on Molokai
-		    else if (boatLocation.equals("Molokai"))
-		    {
-			    // If everyone is on Molokai
-			    if (childrenOnOahu == 0 && adultsOnOahu == 0)
-			    {
-				    // Put this child thread to sleep because the boat problem is done
-				    // TODO: Find a way to put this thread to sleep
-			    }
-			    // If the adults on Oahu is 0, we just want to row over the remaining
-			    // children from Oahu onto Molokai in order to solve the boat problem
-			    else if (adultsOnOahu == 0 && childrenOnOahu > 0)
-			    {
-				    boatLock.acquire();
+						bg.ChildRowToOahu();
 
-				    if ((totalChildren - childrenOnOahu) > 2)
-				    {
+						childrenOnMolokai -= 1;
+						childrenOnOahu += 1;
 
-					    bg.ChildRowToOahu();
-					    bg.ChildRideToOahu();
+						boatLocation = "Oahu";
 
-					    childrenOnOahu += 2;
-				    }
-				    else
-				    {
-					    // Row more children to Molokai
-					    bg.ChildRowToOahu();
-					    childrenOnOahu += 1;
-				    }
+						boatLock.release();
 
-				    boatLocation = "Oahu";
+						break;
+					}
+				}
+			}
 
-				    boatLock.release();
-			    }
-		    }
-	    }
+			KThread.yield();
+		}
 	}
 
 	static void SampleItinerary()
