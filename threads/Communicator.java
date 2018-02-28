@@ -13,19 +13,19 @@ public class Communicator {
     /**
      * Allocate a new communicator.
      */
-    Condition speaker;
-    Condition listener;
     Lock lock;
+    Condition speaker;
+    Condition spoke;
+    Condition listener;
     Integer buffer;
-    int speakers;
     int listeners;
 
     public Communicator() {
         lock = new Lock();
         speaker = new Condition(lock);
+        spoke = new Condition(lock);
         listener = new Condition(lock);
         buffer = null;
-        speakers = 0;
         listeners = 0;
     }
 
@@ -41,16 +41,15 @@ public class Communicator {
      */
     public void speak(int word) {
         lock.acquire();
-        speakers++;
 
-        while(listeners == 0 || buffer != null) {
+        while(listeners <= 0 || buffer != null) {
             speaker.sleep();
         }
 
         buffer = (Integer)word;
         listener.wake();
+        spoke.sleep();
 
-        speakers--;
         lock.release();
         return;
     }
@@ -65,13 +64,16 @@ public class Communicator {
         lock.acquire();
         listeners++;
 
-	while(buffer == null) {
+        while(buffer == null) {
             speaker.wake();
             listener.sleep();
         }
 
         int word = (int)buffer;
         buffer = null;
+
+	spoke.wake();
+	speaker.wake();
 
         listeners--;
         lock.release();
