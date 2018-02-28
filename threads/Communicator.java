@@ -72,8 +72,8 @@ public class Communicator {
         int word = (int)buffer;
         buffer = null;
 
-	spoke.wake();
-	speaker.wake();
+        spoke.wake();
+        speaker.wake();
 
         listeners--;
         lock.release();
