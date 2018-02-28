@@ -21,7 +21,7 @@ public class Boat
 		BoatGrader b = new BoatGrader();
 
 		System.out.println("\n ***Testing Boats with only 2 children***");
-		begin(1, 2, b);
+		begin(2, 4, b);
 
 		// Put more test cases here in this format:
 		// System.out.println("\n ***Testing Boats with 5 children, 8 adults***");
@@ -99,26 +99,43 @@ public class Boat
 		 * Molokai
 		 *      1) Sleep
 		 */
-
 		while (true)
 		{
-			System.out.println("Adult Itinerary");
+			if (totalAdults == adultsOnMolokai && totalChildren == childrenOnMolokai)
+			{
+				System.out.println("End");
+
+				communicator.speak(totalAdults + totalChildren);
+
+				break;
+			}
 
 			if (boatLocation.equals("Oahu"))
 			{
-				if (childrenOnOahu <= 1)
+				System.out.println("AdultItinerary Oahu");
+
+				System.out.println("Adults Oahu: " + adultsOnOahu + ", Adults Molokai: " + adultsOnMolokai +
+						", Children Oahu: " + childrenOnOahu + ", Children Molokai: " + childrenOnMolokai);
+
+				// Only send an adult to Molokai if at least one is on Oahu
+				if (adultsOnOahu >= 1 && (totalChildren != childrenOnOahu))
 				{
+					System.out.println("AdultsOnOahu >= 1 && childrenOnOahu >= 1");
+
+					// Make sure nobody else can row besides us
 					boatLock.acquire();
 
 					bg.AdultRowToMolokai();
 
+					// Change the values of adults to signify the change
 					adultsOnOahu -= 1;
 					adultsOnMolokai += 1;
 
-					boatLocation = "Molokai";
-
-					if (totalChildren == childrenOnMolokai)
+					// If there are children remaining on Oahu, send a child to pick them up
+					if (totalChildren != childrenOnMolokai)
 					{
+//						System.out.println("TotalChildren != ChildrenOnMolokai");
+
 						bg.ChildRowToOahu();
 
 						childrenOnOahu += 1;
@@ -126,23 +143,11 @@ public class Boat
 					}
 
 					boatLock.release();
-
-					break;
-				}
-			}
-			else if (boatLocation.equals("Molokai"))
-			{
-				if (totalAdults == adultsOnMolokai && totalChildren == childrenOnMolokai)
-				{
-					communicator.speak(3);
 				}
 			}
 
 			KThread.yield();
 		}
-
-		System.out.println("AOO: " + adultsOnOahu + ", COO: " + childrenOnOahu);
-		System.out.println("AOM: " + adultsOnMolokai + ", COM: " + childrenOnMolokai);
 	}
 
 	static void ChildItinerary()
@@ -150,62 +155,69 @@ public class Boat
 		// bg.initializeChild(); //Required for autograder interface. Must be the first thing called.
 		//DO NOT PUT ANYTHING ABOVE THIS LINE.
 
-		System.out.println("Child Itinerary");
-
 		while (true)
 		{
+			if (totalAdults == adultsOnMolokai && totalChildren == childrenOnMolokai)
+			{
+				System.out.println("End");
+
+				communicator.speak(totalAdults + totalChildren);
+
+				break;
+			}
+
 			if (boatLocation.equals("Oahu"))
 			{
-				// If there are
+				System.out.println("ChildItinerary Oahu");
+
+				// If there are at least 2 children on Oahu
 				if (childrenOnOahu >= 2)
 				{
+					System.out.println("ChildrenOnOahu <= 2");
+
 					boatLock.acquire();
 
+					// Send a boat with two children to Molokai
 					bg.ChildRowToMolokai();
 					bg.ChildRideToMolokai();
 
+					// Adjust the values to show the change
 					childrenOnOahu -= 2;
 					childrenOnMolokai += 2;
 
-					boatLocation = "Molokai";
+					// If there is at least one adult back at Oahu, we send one child to pick them up
+					if (totalAdults != adultsOnMolokai)
+					{
+						bg.ChildRowToOahu();
 
-					bg.ChildRowToOahu();
-					childrenOnOahu += 1;
-					childrenOnMolokai -= 1;
-
-					boatLocation = "Oahu";
+						childrenOnOahu += 1;
+						childrenOnMolokai -= 1;
+					}
 
 					boatLock.release();
-
-					break;
 				}
 			}
 			else if (boatLocation.equals("Molokai"))
 			{
+				boatLock.acquire();
+
 				if (totalAdults == adultsOnMolokai)
 				{
-					if (totalChildren == childrenOnMolokai)
-					{
-						communicator.speak(3);
+					bg.ChildRowToOahu();
 
-						break;
-					}
-					else
-					{
-						boatLock.acquire();
+					childrenOnOahu += 1;
+					childrenOnMolokai -= 1;				}
 
-						bg.ChildRowToOahu();
+				// If there is at least one child back at Oahu, we send one child to pick them up
+				if (totalChildren != childrenOnMolokai)
+				{
+					bg.ChildRowToOahu();
 
-						childrenOnMolokai -= 1;
-						childrenOnOahu += 1;
-
-						boatLocation = "Oahu";
-
-						boatLock.release();
-
-						break;
-					}
+					childrenOnOahu += 1;
+					childrenOnMolokai -= 1;
 				}
+
+				boatLock.release();
 			}
 
 			KThread.yield();
