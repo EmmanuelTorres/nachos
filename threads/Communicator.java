@@ -13,22 +13,20 @@ public class Communicator {
     /**
      * Allocate a new communicator.
      */
-    Condition needSpeaker;
-    Condition needListener;
+    Condition speaker;
+    Condition listener;
     Lock lock;
-    int message;
-    boolean isSpeaking;
-    boolean isListening;
-    boolean ready;
+    Integer buffer;
+    int speakers;
+    int listeners;
 
     public Communicator() {
         lock = new Lock();
-	needSpeaker = new Condition(lock);
-	needListener = new Condition(lock);
-        isSpeaking = false;
-	isListening = false;
-	message = 0;
-	ready = false;
+        speaker = new Condition(lock);
+        listener = new Condition(lock);
+        buffer = null;
+        speakers = 0;
+        listeners = 0;
     }
 
     /**
@@ -43,15 +41,17 @@ public class Communicator {
      */
     public void speak(int word) {
         lock.acquire();
-	isSpeaking = true;
-	if(isListening == false || ready == true) {
-            needListener.sleep();
-	}
-        message = word;
-	ready = true;
-        needSpeaker.wake();
-	isSpeaking = false;
-	lock.release();
+        speakers++;
+
+        while(listeners == 0 || buffer != null) {
+            speaker.sleep();
+        }
+
+        buffer = (Integer)word;
+        listener.wake();
+
+        speakers--;
+        lock.release();
         return;
     }
 
@@ -63,16 +63,18 @@ public class Communicator {
      */    
     public int listen() {
         lock.acquire();
-        isListening = true;
-	if(ready == false) {
-            needListener.wake();
-            needSpeaker.sleep();
-	}
-        int word = message;
-	message = 0;
-	ready = false;
-	isListening = false;
-	lock.release();
+        listeners++;
+
+	while(buffer == null) {
+            speaker.wake();
+            listener.sleep();
+        }
+
+        int word = (int)buffer;
+        buffer = null;
+
+        listeners--;
+        lock.release();
         return word;
     }
 }
