@@ -228,7 +228,7 @@ public class Boat
 				// If there are at least 2 children on Oahu
 				if (childrenOnOahu >= 2)
 				{
-					System.out.println("ChildrenOnOahu <= 2");
+//					System.out.println("ChildrenOnOahu <= 2");
 
 					boatLock.acquire();
 
@@ -258,7 +258,7 @@ public class Boat
 			}
 			else if (boatLocation.equals("Molokai"))
 			{
-				System.out.println("ChildItinerary Molokai");
+//				System.out.println("ChildItinerary Molokai");
 
 				boatLock.acquire();
 
