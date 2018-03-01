@@ -20,17 +20,20 @@ public class Boat
 		// in order to get graded
 		BoatGrader b = new BoatGrader();
 
-		System.out.println("\n ***Testing Boats with only 2 children***");
+		// NOTE* All cases are solved for mathematical induction tests
+//		System.out.println("\n ***Testing Mathematical Induction Cases***");
 //		begin(0, 2, b);
 //		begin(1, 2, b);
 //		begin(0, 3, b);
 //		begin(2, 2, b);
 //		begin(2, 3, b);
-		begin(3, 3, b);
+//		begin(3, 3, b);
 
-		// Put more test cases here in this format:
-		// System.out.println("\n ***Testing Boats with 5 children, 8 adults***");
-		// begin(8, 5, b);
+		// NOTE* All cases are solved for stress tests
+//		System.out.println("\n ***Testing Stress Case***");
+//		begin(0, 47, b);
+//		begin(23, 3, b);
+		begin(13, 92, b);
 	}
 
 	public static void begin( int adults, int children, BoatGrader b )
@@ -40,8 +43,6 @@ public class Boat
 		bg = b;
 
 		// Instantiate global variables here
-		// All variables need to be static since the function calls are static
-
 		communicator = new Communicator();
 		boatLock = new Lock();
 		boatLocation = "Oahu";
@@ -95,38 +96,23 @@ public class Boat
 
 	static void AdultItinerary()
 	{
-		/*
-		 * Adult Cases
-		 * Oahu
-		 *      1) There is at least one child on Oahu to row the boat back
-		 *          We row to Molokai. Expected behavior: A child on Molokai will
-		 *          row back with an additional child and re-supply Oahu.
-		 * Molokai
-		 *      1) Sleep
-		 */
 		while (true)
 		{
+			// If the solution has been solved, we can tell the communicator that we have
+			// everyone on Molokai
 			if (totalAdults == adultsOnMolokai && totalChildren == childrenOnMolokai)
 			{
-//				System.out.println("End");
-
 				communicator.speak(totalAdults + totalChildren);
 
 				break;
 			}
 
+			// If the boat is on Oahu
 			if (boatLocation.equals("Oahu"))
 			{
-//				System.out.println("AdultItinerary Oahu");
-
-//				System.out.println("Adults Oahu: " + adultsOnOahu + ", Adults Molokai: " + adultsOnMolokai +
-//						", Children Oahu: " + childrenOnOahu + ", Children Molokai: " + childrenOnMolokai);
-
-				// Only send an adult to Molokai if at least one is on Oahu
+				// If there is one adult on Oahu and at least one child on Oahu
 				if (adultsOnOahu >= 1 && (totalChildren != childrenOnOahu))
 				{
-//					System.out.println("AdultsOnOahu >= 1 && childrenOnOahu >= 1");
-
 					// Make sure nobody else can row besides us
 					boatLock.acquire();
 
@@ -141,10 +127,9 @@ public class Boat
 					boatLocation = "Molokai";
 
 					// If there are children remaining on Oahu, send a child to pick them up
+					// This should ALWAYS be the case
 					if (totalChildren != childrenOnMolokai)
 					{
-//						System.out.println("TotalChildren != ChildrenOnMolokai");
-
 						// Send one child to pick up the rest of the children at Oahu
 						bg.ChildRowToOahu();
 
@@ -156,10 +141,12 @@ public class Boat
 						boatLocation = "Oahu";
 					}
 
+					// Release the lock we held
 					boatLock.release();
 				}
 			}
 
+			// Prevent busy waiting by yielding this thread while its conditions are not met
 			KThread.yield();
 		}
 	}
@@ -171,10 +158,10 @@ public class Boat
 
 		while (true)
 		{
+			// If the solution has been solved, we can tell the communicator that we have
+			// everyone on Molokai
 			if (totalAdults == adultsOnMolokai && totalChildren == childrenOnMolokai)
 			{
-//				System.out.println("End");
-
 				communicator.speak(totalAdults + totalChildren);
 
 				break;
@@ -183,8 +170,6 @@ public class Boat
 			// If the boat is on Oahu
 			if (boatLocation.equals("Oahu"))
 			{
-//				System.out.println("ChildItinerary Oahu");
-
 				// If the amount of adults on Oahu is 0, we only have to commute children
 				// to Molokai
 				if (adultsOnOahu == 0)
@@ -203,6 +188,7 @@ public class Boat
 							boatLocation = "Molokai";
 						}
 						// If there is more than one child there, we row two people back to Molokai
+						// and we send one child to Oahu to pick up his friend
 						else
 						{
 							bg.ChildRowToMolokai();
@@ -228,8 +214,6 @@ public class Boat
 				// If there are at least 2 children on Oahu
 				if (childrenOnOahu >= 2)
 				{
-//					System.out.println("ChildrenOnOahu <= 2");
-
 					boatLock.acquire();
 
 					// Send a boat with two children to Molokai
@@ -258,8 +242,6 @@ public class Boat
 			}
 			else if (boatLocation.equals("Molokai"))
 			{
-//				System.out.println("ChildItinerary Molokai");
-
 				boatLock.acquire();
 
 				// If all the adults are on Molokai
@@ -282,6 +264,7 @@ public class Boat
 							childrenOnOahu -= 2;
 						}
 
+						// Let the communicator know that everyone is on Molokai
 						communicator.speak(totalAdults + totalChildren);
 					}
 				}
@@ -304,6 +287,7 @@ public class Boat
 				boatLock.release();
 			}
 
+			// If conditions are not met, yield the thread
 			KThread.yield();
 		}
 	}
