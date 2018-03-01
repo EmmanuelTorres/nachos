@@ -176,6 +176,7 @@ public class PriorityScheduler extends Scheduler {
 				// Remove ourselves from the old owner's resourceList
 				oldOwner.resourceList.remove(this);
 
+				// Tell the old owner to update his priority the next chance he gets
 				oldOwner.setPriorityFlag();
 			}
 
@@ -205,6 +206,7 @@ public class PriorityScheduler extends Scheduler {
 				// Acquire this new ThreadState as the new owner
 				acquire(largestPriority.thread);
 
+				// Return the thread with the largest priority
 				return largestPriority.thread;
 			}
 
@@ -224,12 +226,16 @@ public class PriorityScheduler extends Scheduler {
 
 			ThreadState largestPriority = null;
 
+			// Prevents the NullPointerException in the next line
 			if (!waitingResources.isEmpty())
 			{
+				// Set our largest thread to the first element
 				largestPriority = waitingResources.getFirst();
 
+				// Iterate through all elements in waitingResources
 				for (ThreadState currentState: waitingResources)
 				{
+					// Get the one with the largest effective priority
 					if (currentState.getEffectivePriority() > largestPriority.priority)
 					{
 						largestPriority = currentState;
@@ -237,17 +243,23 @@ public class PriorityScheduler extends Scheduler {
 				}
 			}
 
+			// Return the ThreadState with the largest priority
 			return largestPriority;
 		}
 
 		public int getEffectivePriority()
 		{
+			// Set the effectivePriority to the lowest value possible
 			effectivePriority = priorityMinimum;
 
+			// If an update was needed, we'll do it because our effectivePriority has
+			// likely changed since the last time this function was called
 			if (transferPriority && updateNeeded)
 			{
+				// Since we're updating it immediately after, set this to false
 				updateNeeded = false;
 
+				// Get the new highest effectivePriority of this PriorityQueue class
 				for (ThreadState currentThread: waitingResources)
 				{
 					int currentEffectivePriority = currentThread.getEffectivePriority();
@@ -259,6 +271,7 @@ public class PriorityScheduler extends Scheduler {
 				}
 			}
 
+			// Return the highest effectivePriority
 			return effectivePriority;
 		}
 
@@ -303,9 +316,9 @@ public class PriorityScheduler extends Scheduler {
 		public ThreadState(KThread thread)
 		{
 			this.thread = thread;
-			this.resourceList = new LinkedList<PriorityQueue>();
-			this.waitResourceList = new LinkedList<PriorityQueue>();
-			this.updateNeeded = false;
+			resourceList = new LinkedList<PriorityQueue>();
+			waitResourceList = new LinkedList<PriorityQueue>();
+			updateNeeded = false;
 
 			setPriority(priorityDefault);
 		}
@@ -401,7 +414,6 @@ public class PriorityScheduler extends Scheduler {
 			// Update priority is something we want to consider
 			// Remove thread from queue, put inside new queue of array
 			// Should call update priority in here
-
 			// Might want to maintain queues we're waiting on
 			// Check to see if they're not null, remove from that queue
 			// and then set our priority and add ourselves back into this queue
