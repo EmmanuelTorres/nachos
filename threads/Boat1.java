@@ -1,19 +1,12 @@
 package nachos.threads;
 import nachos.ag.BoatGrader;
 
-public class Boat1
+public class Boat
 {
 	static BoatGrader bg;
 	private static Communicator communicator;
 	private static Lock boatLock;
-	/*private static String boatLocation;
-	static private int totalAdults;
-	static private int totalChildren;
-	static private int adultsOnOahu;
-	static private int childrenOnOahu;
-	static private int adultsOnMolokai;
-	static private int childrenOnMolokai;
-*/
+
 	
 	 static private int children;
 	 static private int adult;
@@ -45,7 +38,7 @@ public class Boat1
 		begin(13, 92, b);
 	}
 
-	public static void begin( int adults, int children, BoatGrader b )
+	public static void begin( int Adults, int Children, BoatGrader b )
 	{
 		// Store the externally generated autograder in a class
 		// variable to be accessible by children.
@@ -54,21 +47,13 @@ public class Boat1
 		// Instantiate global variables here
 		communicator = new Communicator();
 		boatLock = new Lock();
-		//boatLocation = "Oahu";
-
-		// Initialize the number of total adults and children
-		/*totalAdults = adults;
-		totalChildren = children;
-
-		adultsOnOahu = adults;
-		childrenOnOahu = children;
-*/		
-		boatAtOahu=false;
-		adult=adults;
-		this.children=children;
 		
-		adultsOnOahu=adult;
-		childrenOnOahu=children;
+		boatAtOahu=false;
+		adult=Adults;
+		children=Children;
+		
+		adultsOnOahu=Adults;
+		childrenOnOahu=Children;
 		adultsOnMolokai=0;;
 		childrenOnMolokai=0;
 		// Initialize all adult threads
@@ -79,7 +64,7 @@ public class Boat1
 				AdultItinerary();
 			}
 		};
-		for (int i = 0; i < adults; i++)
+		for (int i = 0; i < Adults; i++)
 		{
 			KThread adultThread = new KThread(adultRunnable);
 			adultThread.setName("Adult " + i);
@@ -94,7 +79,7 @@ public class Boat1
 				ChildItinerary();
 			}
 		};
-		for (int i = 0; i < children; i++)
+		for (int i = 0; i < Children; i++)
 		{
 			KThread childThread = new KThread(childRunnable);
 			childThread.setName("Child " + i);
@@ -102,17 +87,11 @@ public class Boat1
 		}
 
 		// While the communicator sees that there are still threads on Oahu
-		/*while (communicator.listen() != (totalAdults + totalChildren))
-		{
-			if (communicator.listen() == (totalAdults + totalChildren))
-			{
+	
+		while (communicator.listen() != (Adults + Children)){
+			if (communicator.listen() == (Adults + Children))
 				break;
-			}
 		}
-		*/
-		while (communicator.listen() != (adult + this.children))
-			if (communicator.listen() == (adult + this.children))
-				break;
 	}
 
 	static void AdultItinerary()
