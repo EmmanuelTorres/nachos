@@ -421,8 +421,6 @@ public class UserProcess {
 				return handleClose(a0);
 			case syscallUnlink:
 				return handleUnlink(readVirtualMemoryString(a0,256));
-
-
 			default:
 				Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 				Lib.assertNotReached("Unknown system call!");
@@ -432,8 +430,14 @@ public class UserProcess {
 
 	/**
 	 * Handle the halt() system call.
+	 * This is Aaron's code, I'm just pushing it for him
 	 */
-	private int handleHalt() {
+	private int handleHalt()
+	{
+		if (PID != 0)
+		{
+			return 0;
+		}
 
 		Machine.halt();
 
