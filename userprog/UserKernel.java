@@ -135,5 +135,5 @@ public class UserKernel extends ThreadedKernel {
     private static Coff dummy1 = null;
     
     /* --------- Added Vars --------- */
-    private static LinkedList freePages = new LinkedList<Integer>();
+    private static LinkedList<Integer> freePages = new LinkedList<Integer>();
 }
