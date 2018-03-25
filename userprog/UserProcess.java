@@ -3,7 +3,8 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
-
+import java.util.HashMap;
+import java.util.Map;
 import java.io.EOFException;
 
 /**
@@ -22,11 +23,18 @@ public class UserProcess {
     /**
      * Allocate a new process.
      */
+	 
     public UserProcess() {
 		int numPhysPages = Machine.processor().getNumPhysPages();
 		pageTable = new TranslationEntry[numPhysPages];
 		for (int i=0; i<numPhysPages; i++)
 			pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+		boolean intStatus = Machine.interrupt().disable();//disable he interupt
+		joined = new Semaphore(0);// allocate memory for a semaphore we allocate when P when we join and V when we close
+		ProcessID=GenerateID++;//whenever we create a new process we allocate it a unique positive id the downside of this way is that we are limited to 2^32 processes
+		currentStatus=-1;// an invalid status
+		Machine.interrupt().restore(intStatus);//restore the interupt
+
     }
     
     /**
@@ -37,7 +45,7 @@ public class UserProcess {
      * @return	a new process of the correct class.
      */
     public static UserProcess newUserProcess() {
-	return (UserProcess)Lib.constructObject(Machine.getProcessClassName());
+		return (UserProcess)Lib.constructObject(Machine.getProcessClassName());
     }
 
     /**
@@ -385,6 +393,31 @@ public class UserProcess {
      * @param	a3	the fourth syscall argument.
      * @return	the value to be returned to the user.
      */
+	public int handleExec(int fileCode,int argc,int argv){
+		String file = readVirtualMemoryString(fileCode,256); //read from virtual memory the filecode and pass it the max file length, 256
+		String[] arguments = new String[argc]; //grab each individual argument
+		byte[] buff = new byte[4]//set up a byte buffer of sz 4
+		for(int i =0;i<arguments.length;i++){//look at each argument
+			if(readVirtualMemory(argv +(i*4),buff) == 4)//if he argv is byte aligned 
+				arguments[i]; /// have it read the virtual memory and set the array 	
+		}
+	}
+	public void handleExit(int status){
+
+	}	
+	public int handleJoin(int pid, int status){
+		/*psuedo code
+			if( the pid does not exist as a pairing in the childID map):
+				return -1
+			
+			childID.remove(pid) <--- this means the pairing exist so remove the adult from the pairing
+		
+		
+		*/
+		
+		return 0;
+	}
+	
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
 		switch (syscall) {
 		case syscallHalt:
@@ -427,8 +460,13 @@ public class UserProcess {
 			Lib.assertNotReached("Unexpected exception");
 		}
     }
-
-    /** The program being run by this process. */
+	//The choice of map is due to none duplicate key entries but doesnt restrict to the mapping 
+	private static HashMap<int,UserProcess> childID = new Hashmap<int,UserProcess>();// A Map of Child ids, this has the mapping of child ID -> Parent process 
+    public int ProcessID ;//id of the current process 
+	private static int GenerateID = 0;//generate unique id 
+	private int currentstatus;
+	private Semaphore joined;
+	/** The program being run by this process. */
     protected Coff coff;
 
     /** This process's page table. */
