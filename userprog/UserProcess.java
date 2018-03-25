@@ -3,6 +3,8 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.EOFException;
@@ -528,7 +530,27 @@ public class UserProcess {
 		return -1;
 	}	
 	public int handleJoin(int pid, int status){
-		return -1;
+		// if the pid supplied does not have an associated child id which means you shouldnt join
+		if(!children.containsKey(pid))
+			return -1;
+
+		// start the join since we are joining and dont want to rejoin with the child we have to remove the mapping
+
+		children.remove(pid);    // according to java docs on map
+        /*
+            remove(Object key)
+            Removes the mapping for a key from this map if it is present (optional operation).
+        */
+
+		Processes.get(pid).joined.P();    // process index is the same as the process id. Call P() to signal the join
+
+		if (writeVirtualMemory(status, Lib.bytesFromInt(Processes.get(pid).currentstatus)) == 4 && Processes.get(pid).NormExit)
+		{
+			return 1;
+		}
+
+		return 0;
+
 	}
 
 	public int handleCreate(String name) {
@@ -663,4 +685,9 @@ public class UserProcess {
 	private int PID;
 	private UserProcess parent;
 	private HashMap<Integer, ChildProcess> children = new HashMap<Integer, ChildProcess>();
+	// A Map of Child ids, this has the mapping of child ID -> Parent process
+	private static ArrayList<UserProcess> Processes = new ArrayList<UserProcess>();
+	// an arraylist to hold all processes, needed because some will not be a child
+	private int currentstatus;
+	private boolean NormExit;
 }
