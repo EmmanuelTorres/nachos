@@ -584,7 +584,7 @@ public class UserProcess {
 		byte[] temp = new byte[size];
 		if( readVirtualMemory(buffer, temp) != size )
 			return -1;
-		return openfile.write(buffer, 0, size);
+		return openfile.write(temp, 0, size);
 		// check actual write size
 	}
 	
