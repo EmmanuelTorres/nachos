@@ -108,9 +108,9 @@ public class UserProcess {
 		for (int length=0; length<bytesRead; length++) {
 			if (bytes[length] == 0)
 			return new String(bytes, 0, length);
-	}
+        }
 
-	return null;
+        return null;
     }
 
     /**
@@ -142,16 +142,26 @@ public class UserProcess {
     public int readVirtualMemory(int vaddr, byte[] data, int offset,int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
-		byte[] memory = Machine.processor().getMemory();
-		
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
-			return 0;
+		int vPgNum = Machine.processor().pageFromAddress(vaddr);
+		TranslationEntry translation = pageTable[vPgNum];
 
-		int amount = Math.min(length, memory.length-vaddr);
-		System.arraycopy(memory, vaddr, data, offset, amount);
+		// if the translation is not valid we ignore it
+		if(translation.valid)
+		{
+			translation.used = true;
+			
+			int addrOffset = Machine.processor().offsetFromAddress(vaddr);
+			int physAddr = translation.ppn * pageSize + addrOffset;
+			byte[] memory = Machine.processor().getMemory();
+			int amount = Math.min(length, memory.length-vaddr);
+			
+			// System.arraycopy(Obj src, int srcPos, Obj dest, int destPos, int length)
+			System.arraycopy(memory, physAddr, data, offset, amount);
 
-		return amount;
+			return amount;
+		}
+
+		return 0;
     }
 
     /**
@@ -183,17 +193,26 @@ public class UserProcess {
      */
     public int writeVirtualMemory(int vaddr, byte[] data, int offset,int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
-
-		byte[] memory = Machine.processor().getMemory();
 		
-		// for now, just assume that virtual addresses equal physical addresses
-		if (vaddr < 0 || vaddr >= memory.length)
-			return 0;
+		int vPgNum = Machine.processor().pageFromAddress(vaddr);
+		TranslationEntry translation = pageTable[vPgNum];
 
-		int amount = Math.min(length, memory.length-vaddr);
-		System.arraycopy(data, offset, memory, vaddr, amount);
-
-		return amount;
+		// if the translation is not valid we ignore it
+		if(translation.valid && !translation.readOnly)
+		{
+			translation.used = true;
+			translation.dirty = true;
+			
+			int addrOffset = Machine.processor().offsetFromAddress(vaddr);
+			int physAddr = translation.ppn * pageSize + addrOffset;
+			byte[] memory = Machine.processor().getMemory();
+			int amount = Math.min(length, memory.length-vaddr);
+			
+			// System.arraycopy(Obj src, int srcPos, Obj dest, int destPos, int length)
+			System.arraycopy(data, offset, memory, physAddr, amount);
+			return amount;
+		}
+		return 0;
     }
 
     /**
@@ -226,12 +245,14 @@ public class UserProcess {
 
 		// make sure the sections are contiguous and start at page 0
 		numPages = 0;
-		for (int s=0; s<coff.getNumSections(); s++) {
+		for (int s=0; s<coff.getNumSections(); s++) 
+		{
 			CoffSection section = coff.getSection(s);
-			if (section.getFirstVPN() != numPages) {
-			coff.close();
-			Lib.debug(dbgProcess, "\tfragmented executable");
-			return false;
+			if (section.getFirstVPN() != numPages)
+			{
+				coff.close();
+				Lib.debug(dbgProcess, "\tfragmented executable");
+				return false;
 			}
 			numPages += section.getLength();
 		}
@@ -260,6 +281,18 @@ public class UserProcess {
 		// and finally reserve 1 page for arguments
 		numPages++;
 
+		for(int i = 0; i < numPages; i++)
+		{
+			int physPageNum = UserKernel.getFreePage();
+
+			// TranslationEntry(int vpgnum, int physpgnum, bool valid, 
+			//								bool readOnly, 
+			//								bool used, bool dirty)
+			pageTable[i] = new TranslationEntry(i, physPageNum, true, 
+												coff.getSection(i).isReadOnly(),
+												false, false);
+		}
+
 		if (!loadSections())
 			return false;
 
@@ -269,7 +302,7 @@ public class UserProcess {
 
 		this.argc = args.length;
 		this.argv = entryOffset;
-		
+
 		for (int i=0; i<argv.length; i++) {
 			byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
 			Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
@@ -291,7 +324,8 @@ public class UserProcess {
      *
      * @return	<tt>true</tt> if the sections were successfully loaded.
      */
-    protected boolean loadSections() {
+    protected boolean loadSections()
+    {
 		if (numPages > Machine.processor().getNumPhysPages()) {
 			coff.close();
 			Lib.debug(dbgProcess, "\tinsufficient physical memory");
@@ -299,28 +333,36 @@ public class UserProcess {
 		}
 
 		// load sections
-		for (int s=0; s<coff.getNumSections(); s++) {
+		for (int s=0; s<coff.getNumSections(); s++)
+		{
 			CoffSection section = coff.getSection(s);
 			
 			Lib.debug(dbgProcess, "\tinitializing " + section.getName()
 				  + " section (" + section.getLength() + " pages)");
 
-			for (int i=0; i<section.getLength(); i++) {
-			int vpn = section.getFirstVPN()+i;
+			for (int i=0; i<section.getLength(); i++) 
+			{
+				int vpn = section.getFirstVPN()+i;
 
-			// for now, just assume virtual addresses=physical addresses
-			section.loadPage(i, vpn);
+				// for now, just assume virtual addresses=physical addresses
+				section.loadPage(i, vpn);
 			}
 		}
-		
+
 		return true;
     }
 
     /**
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
-    protected void unloadSections() {
-    }    
+    protected void unloadSections()
+    {
+    	for(int i = 0; i < coff.getNumSections(); i++)
+    	{
+    		CoffSection section = coff.getSection(i);
+    		
+    	}
+    }
 
     /**
      * Initialize the processor's registers in preparation for running the
@@ -358,7 +400,7 @@ public class UserProcess {
 
 
     private static final int
-        syscallHalt = 0,
+    syscallHalt = 0,
 	syscallExit = 1,
 	syscallExec = 2,
 	syscallJoin = 3,
@@ -559,18 +601,32 @@ public class UserProcess {
 
 	public int handleCreate(String name) {
 		// sanitize name
+
+		int fd = getAvailableFileDescriptor();
+		if(fd == -1)
+			return -1;
+
 		OpenFile openfile = ThreadedKernel.fileSystem.open(name, true);
 		if(openfile == null)
 			return -1;
-		return addFileDescriptor(openfile);
+
+		filedescriptors[fd] = openfile;
+		return 0;
 	}
 
 	public int handleOpen(String name) {
 		// sanitize name
+
+		int fd = getAvailableFileDescriptor();
+		if(fd == -1)
+			return -1;
+
 		OpenFile openfile = ThreadedKernel.fileSystem.open(name, false);
 		if(openfile == null)
 			return -1;
-		return addFileDescriptor(openfile);
+
+		filedescriptors[fd] = openfile;
+		return 0;
 	}
 	
 	public int handleRead(int fd, int buffer, int size) {
