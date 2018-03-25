@@ -422,7 +422,7 @@ public class UserProcess {
 
 	public int handleCreate(String name) {
 		// sanitize name
-		OpenFile openfile = ThreadedKernel.FileSystem.open(name, true);
+		OpenFile openfile = ThreadedKernel.fileSystem.open(name, true);
 		if(openfile == null)
 			return -1;
 		return addFileDescriptor(openfile);
@@ -430,7 +430,7 @@ public class UserProcess {
 
 	public int handleOpen(String name) {
 		// sanitize name
-		OpenFile openfile = ThreadedKernel.FileSystem.open(name, false);
+		OpenFile openfile = ThreadedKernel.fileSystem.open(name, false);
 		if(openfile == null)
 			return -1;
 		return addFileDescriptor(openfile);
@@ -463,7 +463,7 @@ public class UserProcess {
 	}
 
 	public int handleUnlink(String name) {
-		if( ThreadedKernel.FileSystem.remove(name) == true )
+		if( ThreadedKernel.fileSystem.remove(name) == true )
 			return 0;
 		return -1;
 	}
