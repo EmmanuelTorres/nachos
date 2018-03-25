@@ -446,7 +446,8 @@ public class UserProcess {
 			case syscallHalt:
 				return handleHalt();
 			case syscallExit:
-				return handleExit(a0);
+				handleExit(a0);
+				return 0;
 			case syscallExec:
 				return handleExec(a0, a2, a1);
 			case syscallJoin:
@@ -509,7 +510,8 @@ public class UserProcess {
 		if (!withinBounds(fileNameAddress) || !withinBounds(argumentsPointerArray) || argc < 0)
 		{
 			// we exit
-			return handleExit(-1);
+			handleExit(-1);
+			return -1;
 		}
 
 		// Reads a String from the virtual memory with the address given
@@ -572,9 +574,24 @@ public class UserProcess {
 		return newChild.PID;
 	}
 
-	public int handleExit(int status){
-		return -1;
-	}	
+	public void handleExit(int status){
+		for(int i =0; i<16;i++){ // loop through all the files
+			if(filedescriptors[i] != null){ // check to see if there is something
+				filedescriptors[i].close(); // close the file
+				filedescriptors[i] = null; // kill it
+			}
+		}
+		currentStatus=status;// set the current status
+		NormExit=true;// say that we did a clean exit
+		joined.V();// decrement the semaphore
+		unloadSections();
+
+		if(ProcessID == 0 ) // Kernal is always the first process
+			Kernel.kernel.terminate();// Terminate the kernel
+		else
+			KThread.currentThread().finish();// finish the thread
+	}
+
 	public int handleJoin(int pid, int status){
 		// if the pid supplied does not have an associated child id which means you shouldnt join
 		if(!children.containsKey(pid))
