@@ -680,6 +680,7 @@ public class UserProcess {
 
     protected OpenFile[] filedescriptors;
 
+    private int currentStatus = 0;
 	private static final int MAX_STRING_LENGTH = 256;
 	// May need to be static to comply with Patrick's code -- idk
 	private int PID;
@@ -688,6 +689,5 @@ public class UserProcess {
 	// A Map of Child ids, this has the mapping of child ID -> Parent process
 	private static ArrayList<UserProcess> Processes = new ArrayList<UserProcess>();
 	// an arraylist to hold all processes, needed because some will not be a child
-	private int currentstatus;
 	private boolean NormExit;
 }
