@@ -404,11 +404,11 @@ public class UserProcess {
 			case syscallHalt:
 				return handleHalt();
 			case syscallExit:
-				return handleExit(-1);
+				return handleExit(a0);
 			case syscallExec:
 				return handleExec(a0, a2, a1);
 			case syscallJoin:
-				return handleJoin(-1, -1);
+				return handleJoin(a0, a1);
 			case syscallCreate:
 				return handleCreate(readVirtualMemoryString(a0,256));
 			case syscallOpen:
