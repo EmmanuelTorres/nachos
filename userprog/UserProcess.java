@@ -179,15 +179,14 @@ public class UserProcess {
 		// Set its used bit to true
 	    translationEntry.used = true;
 
-		// The new length for system.arraycopy is the smallest, either length or pageSize - virtualOffset
-	    int amount = Math.min(length, pageSize - virtualOffset);
-
+	    // The new length for system.arraycopy is the smallest, either length or pageSize - virtualOffset
+	    memoryRead = Math.min(length, pageSize - virtualOffset);
 	    int srcPos = Processor.makeAddress(translationEntry.ppn, virtualOffset);
 
 	    // System.arraycopy(Obj src, int srcPos, Obj dest, int destPos, int length)
-	    System.arraycopy(physicalMemory, srcPos, dest, destPos, amount);
+	    System.arraycopy(physicalMemory, srcPos, dest, destPos, memoryRead);
 
-	    destPos += amount;
+	    destPos += memoryRead;
 
 	    for (int i = startingVirtualPageNumber + 1; i <= endingVirtualPageNumber; i++)
 	    {
@@ -200,15 +199,15 @@ public class UserProcess {
 			    return memoryRead;
 		    }
 
-		    int currentAmount = Math.min(length - amount, pageSize);
+		    int currentAmount = Math.min(length - memoryRead, pageSize);
 		    int currentSrcPos = Processor.makeAddress(translationEntry.ppn, 0);
 
 		    System.arraycopy(physicalMemory, currentSrcPos, dest, destPos, currentAmount);
-		    amount += currentAmount;
+		    memoryRead += currentAmount;
 		    destPos += currentAmount;
 	    }
 
-	    return amount;
+	    return memoryRead;
     }
 
     /**
