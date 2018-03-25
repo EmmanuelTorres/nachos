@@ -146,7 +146,7 @@ public class UserProcess {
 		TranslationEntry translation = pageTable[vPgNum];
 
 		// if the translation is not valid we ignore it
-		if(translation.valid)
+		if(translation.valid && checkPhysPage(translation.ppn))
 		{
 			translation.used = true;
 			
@@ -198,7 +198,7 @@ public class UserProcess {
 		TranslationEntry translation = pageTable[vPgNum];
 
 		// if the translation is not valid we ignore it
-		if(translation.valid && !translation.readOnly)
+		if(translation.valid && !translation.readOnly && checkPhysPage(translation.ppn))
 		{
 			translation.used = true;
 			translation.dirty = true;
@@ -213,6 +213,10 @@ public class UserProcess {
 			return amount;
 		}
 		return 0;
+    }
+
+    private boolean checkPhysPage(int physPageNum){
+    	return ( physPageNum < 0 || physPageNum >= Machine.processor().getNumPhysPages() );
     }
 
     /**
