@@ -421,27 +421,51 @@ public class UserProcess {
 	}
 
 	public int handleCreate(String name) {
-		
+		// sanitize name
+		OpenFile openfile = ThreadedKernel.FileSystem.open(name, true);
+		if(openfile == null)
+			return -1;
+		return addFileDescriptor(openfile);
 	}
 
 	public int handleOpen(String name) {
-		
+		// sanitize name
+		OpenFile openfile = ThreadedKernel.FileSystem.open(name, false);
+		if(openfile == null)
+			return -1;
+		return addFileDescriptor(openfile);
 	}
 	
 	public int handleRead(int fd, int buffer, int size) {
-		
+		OpenFile openfile = filedescriptors[fd];
+		byte[] temp = new byte[size];
+		if( openfile.read(temp, 0, size) == -1 )
+			return -1;
+		if( writeVirtualMemory(buffer, temp) != size )
+			return -1;
+		return 0;
 	}
 
 	public int handleWrite(int fd, int buffer, int size) {
-		
+		OpenFile openfile = filedescriptors[fd];
+		byte[] temp = new byte[size];
+		if( readVirtualMemory(buffer, temp) != size )
+			return -1;
+		return openfile.write(buffer, 0, size);
+		// check actual write size
 	}
 	
 	public int handleClose(int fd) {
-		
+		OpenFile openfile = filedescriptors[fd];
+		openfile.close();
+		filedescriptor[fd] = null;
+		return 0;
 	}
 
 	public int handleUnlink(String name) {
-		
+		if( ThreadedKernel.FileSystem.remove(name) == true )
+			return 0;
+		return -1;
 	}
 
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
