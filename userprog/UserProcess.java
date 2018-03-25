@@ -555,18 +555,32 @@ public class UserProcess {
 
 	public int handleCreate(String name) {
 		// sanitize name
+
+		int fd = getAvailableFileDescriptor();
+		if(fd == -1)
+			return -1;
+
 		OpenFile openfile = ThreadedKernel.fileSystem.open(name, true);
 		if(openfile == null)
 			return -1;
-		return addFileDescriptor(openfile);
+
+		filedescriptors[fd] = openfile;
+		return 0;
 	}
 
 	public int handleOpen(String name) {
 		// sanitize name
+
+		int fd = getAvailableFileDescriptor();
+		if(fd == -1)
+			return -1;
+
 		OpenFile openfile = ThreadedKernel.fileSystem.open(name, false);
 		if(openfile == null)
 			return -1;
-		return addFileDescriptor(openfile);
+
+		filedescriptors[fd] = openfile;
+		return 0;
 	}
 	
 	public int handleRead(int fd, int buffer, int size) {
