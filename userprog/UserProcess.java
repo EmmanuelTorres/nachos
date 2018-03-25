@@ -286,11 +286,9 @@ public class UserProcess {
 			int physPageNum = UserKernel.getFreePage();
 
 			// TranslationEntry(int vpgnum, int physpgnum, bool valid, 
-			//								bool readOnly, 
-			//								bool used, bool dirty)
+			//								bool readOnly, bool used, bool dirty)
 			pageTable[i] = new TranslationEntry(i, physPageNum, true, 
-												coff.getSection(i).isReadOnly(),
-												false, false);
+												false, false, false);
 		}
 
 		if (!loadSections())
@@ -343,9 +341,10 @@ public class UserProcess {
 			for (int i=0; i<section.getLength(); i++) 
 			{
 				int vpn = section.getFirstVPN()+i;
+				TranslationEntry translation = pageTable[vpn];
+				translation.readOnly = section.isReadOnly();
 
-				// for now, just assume virtual addresses=physical addresses
-				section.loadPage(i, vpn);
+				section.loadPage(i, translation.ppn);
 			}
 		}
 
@@ -357,11 +356,9 @@ public class UserProcess {
      */
     protected void unloadSections()
     {
-    	for(int i = 0; i < coff.getNumSections(); i++)
-    	{
-    		CoffSection section = coff.getSection(i);
-    		
-    	}
+    	// Label the page as free to write to
+    	for(int i = 0; i < numPages; i++)
+    		UserKernel.addFreePage(pageTable[i].ppn);
     }
 
     /**
