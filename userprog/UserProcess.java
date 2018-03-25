@@ -85,7 +85,7 @@ public class UserProcess {
     private TranslationEntry getPageTableEntry(int virtualPageNumber)
     {
     	// If the pageTable is null or if the virtualPageNumber is not within bounds
-    	if (pageTable == null || !withinBounds(virtualPageNumber))
+    	if (pageTable.length == 0 || !withinBounds(virtualPageNumber))
 	    {
 	    	// we return null
 	    	return null;
