@@ -462,6 +462,21 @@ public class UserProcess {
 			Lib.assertNotReached("Unexpected exception");
 		}
     }
+
+    protected int getAvailableFileDescriptor() {
+	for(int i = 0; i < 16; i++) {
+		if(filedescriptors[i] == null)
+			return i;
+	}
+	return -1;
+    }
+
+    protected int addFileDescriptor(OpenFile openfile) {
+	int i = getAvailableFileDescriptor();
+	filedescriptors[i] = openfile;
+	return i;
+    }
+
 	//The choice of map is due to none duplicate key entries but doesnt restrict to the mapping 
 	private static HashMap<int,UserProcess> childID = new Hashmap<int,UserProcess>();// A Map of Child ids, this has the mapping of child ID -> Parent process 
     public int ProcessID ;//id of the current process 
