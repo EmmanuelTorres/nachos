@@ -419,11 +419,47 @@ public class UserProcess {
 		
 		return 0;
 	}
+
+	public int handleCreate(String name) {
+		
+	}
+
+	public int handleOpen(String name) {
+		
+	}
 	
+	public int handleRead(int fd, int buffer, int size) {
+		
+	}
+
+	public int handleWrite(int fd, int buffer, int size) {
+		
+	}
+	
+	public int handleClose(int fd) {
+		
+	}
+
+	public int handleUnlink(String name) {
+		
+	}
+
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
 		switch (syscall) {
 		case syscallHalt:
 			return handleHalt();
+		case syscallCreate:
+			return handleCreate(readVirtualMemoryString(a0,256));
+		case syscallOpen:
+			return handleOpen(readVirtualMemoryString(a0,256));
+		case syscallRead:
+			return handleRead(a0, a1, a2);
+		case syscallWrite:
+			return handleWrite(a0, a1, a2);
+		case syscallClose:
+			return handleClose(a0);
+		case syscallUnlink:
+			return handleUnlink(readVirtualMemoryString(a0,256));
 
 
 		default:
