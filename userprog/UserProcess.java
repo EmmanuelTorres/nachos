@@ -343,16 +343,16 @@ public class UserProcess {
 		processor.writeRegister(Processor.regA1, argv);
     }
 
-    /**
-     * Handle the halt() system call. 
-     */
-    private int handleHalt() {
+	/*
+	 * A helper function that checks to see if the address we give it are
+	 * within the bounds of (0, numPages)
+	 */
+	private boolean withinBounds(int address)
+	{
+		int pageNumber = Processor.pageFromAddress(address);
 
-		Machine.halt();
-		
-		Lib.assertNotReached("Machine.halt() did not halt machine!");
-		return 0;
-    }
+		return pageNumber >= 0 && pageNumber <= numPages;
+	}
 
 
     private static final int
@@ -367,62 +367,173 @@ public class UserProcess {
 	syscallClose = 8,
 	syscallUnlink = 9;
 
-    /**
-     * Handle a syscall exception. Called by <tt>handleException()</tt>. The
-     * <i>syscall</i> argument identifies which syscall the user executed:
-     *
-     * <table>
-     * <tr><td>syscall#</td><td>syscall prototype</td></tr>
-     * <tr><td>0</td><td><tt>void halt();</tt></td></tr>
-     * <tr><td>1</td><td><tt>void exit(int status);</tt></td></tr>
-     * <tr><td>2</td><td><tt>int  exec(char *name, int argc, char **argv);
-     * 								</tt></td></tr>
-     * <tr><td>3</td><td><tt>int  join(int pid, int *status);</tt></td></tr>
-     * <tr><td>4</td><td><tt>int  creat(char *name);</tt></td></tr>
-     * <tr><td>5</td><td><tt>int  open(char *name);</tt></td></tr>
-     * <tr><td>6</td><td><tt>int  read(int fd, char *buffer, int size);
-     *								</tt></td></tr>
-     * <tr><td>7</td><td><tt>int  write(int fd, char *buffer, int size);
-     *								</tt></td></tr>
-     * <tr><td>8</td><td><tt>int  close(int fd);</tt></td></tr>
-     * <tr><td>9</td><td><tt>int  unlink(char *name);</tt></td></tr>
-     * </table>
-     * 
-     * @param	syscall	the syscall number.
-     * @param	a0	the first syscall argument.
-     * @param	a1	the second syscall argument.
-     * @param	a2	the third syscall argument.
-     * @param	a3	the fourth syscall argument.
-     * @return	the value to be returned to the user.
-     */
-	public int handleExec(int fileCode,int argc,int argv){
-		String file = readVirtualMemoryString(fileCode,256); //read from virtual memory the filecode and pass it the max file length, 256
-		String[] arguments = new String[argc]; //grab each individual argument
-		byte[] buff = new byte[4]//set up a byte buffer of sz 4
-		for(int i =0;i<arguments.length;i++){//look at each argument
-			if(readVirtualMemory(argv +(i*4),buff) == 4)//if he argv is byte aligned 
-				arguments[i]; /// have it read the virtual memory and set the array 	
-		}
-	}
-	public void handleExit(int status){
+	/**
+	 * Handle a syscall exception. Called by <tt>handleException()</tt>. The
+	 * <i>syscall</i> argument identifies which syscall the user executed:
+	 *
+	 * <table>
+	 * <tr><td>syscall#</td><td>syscall prototype</td></tr>
+	 * <tr><td>0</td><td><tt>void halt();</tt></td></tr>
+	 * <tr><td>1</td><td><tt>void exit(int status);</tt></td></tr>
+	 * <tr><td>2</td><td><tt>int  exec(char *name, int argc, char **argv);
+	 * 								</tt></td></tr>
+	 * <tr><td>3</td><td><tt>int  join(int pid, int *status);</tt></td></tr>
+	 * <tr><td>4</td><td><tt>int  creat(char *name);</tt></td></tr>
+	 * <tr><td>5</td><td><tt>int  open(char *name);</tt></td></tr>
+	 * <tr><td>6</td><td><tt>int  read(int fd, char *buffer, int size);
+	 *								</tt></td></tr>
+	 * <tr><td>7</td><td><tt>int  write(int fd, char *buffer, int size);
+	 *								</tt></td></tr>
+	 * <tr><td>8</td><td><tt>int  close(int fd);</tt></td></tr>
+	 * <tr><td>9</td><td><tt>int  unlink(char *name);</tt></td></tr>
+	 * </table>
+	 *
+	 * @param	syscall	the syscall number.
+	 * @param	a0	the first syscall argument.
+	 * @param	a1	the second syscall argument.
+	 * @param	a2	the third syscall argument.
+	 * @param	a3	the fourth syscall argument.
+	 * @return	the value to be returned to the user.
+	 */
+	public int handleSyscall(int syscall, int a0, int a1, int a2, int a3)
+	{
+		switch (syscall)
+		{
+			case syscallHalt:
+				return handleHalt();
+			case syscallExit:
+				return handleExit(-1);
+			case syscallExec:
+				return handleExec(a0, a2, a1);
+			case syscallJoin:
+				return handleJoin(-1, -1);
+			case syscallCreate:
+				return handleCreate(readVirtualMemoryString(a0,256));
+			case syscallOpen:
+				return handleOpen(readVirtualMemoryString(a0,256));
+			case syscallRead:
+				return handleRead(a0, a1, a2);
+			case syscallWrite:
+				return handleWrite(a0, a1, a2);
+			case syscallClose:
+				return handleClose(a0);
+			case syscallUnlink:
+				return handleUnlink(readVirtualMemoryString(a0,256));
 
+
+			default:
+				Lib.debug(dbgProcess, "Unknown syscall " + syscall);
+				Lib.assertNotReached("Unknown system call!");
+		}
+		return 0;
+	}
+
+	/**
+	 * Handle the halt() system call.
+	 */
+	private int handleHalt() {
+
+		Machine.halt();
+
+		Lib.assertNotReached("Machine.halt() did not halt machine!");
+		return 0;
+	}
+
+	/*
+	 * syscall.h function:
+	 *      exit(char* file, int argc, char* argv[]
+	 *          file is a null-terminated string that specifies the name of the file
+	 *          containing the executable. Note that this string must include the ".coff"
+	 *			extension.
+	 *
+	 *          argc specifies the number of arguments to pass to the child process. This
+	 *          number must be non-negative.
+	 *
+	 *          argv is an array of pointers to null-terminated strings that represent the
+	 *          arguments to pass to the child process. argv[0] points to the first
+	 *          argument, and argv[argc-1] points to the last argument.
+	 * Executes a program stored in the specified file with the specified
+	 * arguments, in a new child process.
+	 */
+	private int handleExec(int fileNameAddress, int argumentsPointerArray, int numArguments)
+	{
+		// If either of the addresses given are not within bounds or argc is a negative
+		if (!withinBounds(fileNameAddress) || !withinBounds(argumentsPointerArray) || argc < 0)
+		{
+			// we exit
+			return handleExit(-1);
+		}
+
+		// Reads a String from the virtual memory with the address given
+		String fileName = readVirtualMemoryString(fileNameAddress, MAX_STRING_LENGTH);
+
+		// If the fileName is null or if it doesn't end in .coff, it doesn't meet the pdf guidelines
+		if (fileName == null || !fileName.endsWith(".coff"))
+		{
+			// We return from the function unsuccessfully
+			return -1;
+		}
+
+		// The arguments we'll be passing onto the new child process
+		// TODO: Check if we can just shift numArguments left by 2 (<< 2)
+		byte argumentsArray[] = new byte[numArguments * 4];
+
+		// If the size of the two aren't the same, that means readVirtualMemory couldn't read the entire array
+		// Maybe the size is more than MAX_STRING_LENGTH, maybe its less
+		// Either way, if the sizes aren't the same
+		if (argumentsArray.length != readVirtualMemory(argumentsPointerArray, argumentsArray))
+		{
+			// we return unsuccessfully
+			return -1;
+		}
+
+		// The String arguments going to the new child
+		String arguments[] = new String[numArguments];
+
+		// Assign values to the arguments array
+		for (int i = 0; i < numArguments; i++)
+		{
+			// Set the memory address to the next argument
+			// Notice that the offset has to be multiplied by 4
+			// TODO: Check if we can just shift i left by 2 (<< 2)
+			int argumentAddress = Lib.bytesToInt(argumentsArray, i * 4);
+
+			// If the address is not within bounds
+			if (!withinBounds(argumentAddress))
+			{
+				// we return unsuccessfully
+				return -1;
+			}
+
+			// Otherwise, we read this virtual memory
+			arguments[i] = readVirtualMemoryString(argumentAddress, MAX_STRING_LENGTH);
+		}
+
+		// The new child that will execute from the .coff file
+		UserProcess newChild = newUserProcess();
+		// Set the parent to ourselves
+		newChild.parent = this;
+
+		// Add this child to our HashMap of children
+		children.put(newChild.PID, new ChildProcess(newChild));
+
+		// Execute fileName with its arguments in the newChild
+		newChild.execute(fileName, arguments);
+
+		// Return the PID of the child who was just created
+		return newChild.PID;
+	}
+
+	public int handleExit(int status){
+		return -1;
 	}	
 	public int handleJoin(int pid, int status){
-		/*psuedo code
-			if( the pid does not exist as a pairing in the childID map):
-				return -1
-			
-			childID.remove(pid) <--- this means the pairing exist so remove the adult from the pairing
-		
-		
-		*/
-		
-		return 0;
+		return -1;
 	}
 
 	public int handleCreate(String name) {
 		// sanitize name
-		OpenFile openfile = ThreadedKernel.FileSystem.open(name, true);
+		OpenFile openfile = ThreadedKernel.fileSystem.open(name, true);
 		if(openfile == null)
 			return -1;
 		return addFileDescriptor(openfile);
@@ -430,7 +541,7 @@ public class UserProcess {
 
 	public int handleOpen(String name) {
 		// sanitize name
-		OpenFile openfile = ThreadedKernel.FileSystem.open(name, false);
+		OpenFile openfile = ThreadedKernel.fileSystem.open(name, false);
 		if(openfile == null)
 			return -1;
 		return addFileDescriptor(openfile);
@@ -458,40 +569,15 @@ public class UserProcess {
 	public int handleClose(int fd) {
 		OpenFile openfile = filedescriptors[fd];
 		openfile.close();
-		filedescriptor[fd] = null;
+		filedescriptors[fd] = null;
 		return 0;
 	}
 
 	public int handleUnlink(String name) {
-		if( ThreadedKernel.FileSystem.remove(name) == true )
+		if( ThreadedKernel.fileSystem.remove(name) == true )
 			return 0;
 		return -1;
 	}
-
-    public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
-		switch (syscall) {
-		case syscallHalt:
-			return handleHalt();
-		case syscallCreate:
-			return handleCreate(readVirtualMemoryString(a0,256));
-		case syscallOpen:
-			return handleOpen(readVirtualMemoryString(a0,256));
-		case syscallRead:
-			return handleRead(a0, a1, a2);
-		case syscallWrite:
-			return handleWrite(a0, a1, a2);
-		case syscallClose:
-			return handleClose(a0);
-		case syscallUnlink:
-			return handleUnlink(readVirtualMemoryString(a0,256));
-
-
-		default:
-			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
-			Lib.assertNotReached("Unknown system call!");
-		}
-		return 0;
-    }
 
     /**
      * Handle a user exception. Called by
@@ -523,6 +609,18 @@ public class UserProcess {
 		}
     }
 
+	private static class ChildProcess
+	{
+		public UserProcess process;
+		public Integer returnValue;
+
+		public ChildProcess(UserProcess process)
+		{
+			this.process = process;
+			this.returnValue = null;
+		}
+	}
+
     protected int getAvailableFileDescriptor() {
 	for(int i = 0; i < 16; i++) {
 		if(filedescriptors[i] == null)
@@ -537,9 +635,7 @@ public class UserProcess {
 	return i;
     }
 
-	//The choice of map is due to none duplicate key entries but doesnt restrict to the mapping 
-	private static HashMap<int,UserProcess> childID = new Hashmap<int,UserProcess>();// A Map of Child ids, this has the mapping of child ID -> Parent process 
-    public int ProcessID ;//id of the current process 
+    public int ProcessID ;//id of the current process
 	private static int GenerateID = 0;//generate unique id 
 	private int currentstatus;
 	private Semaphore joined;
@@ -561,4 +657,10 @@ public class UserProcess {
     private static final char dbgProcess = 'a';
 
     protected OpenFile[] filedescriptors;
+
+	private static final int MAX_STRING_LENGTH = 256;
+	// May need to be static to comply with Patrick's code -- idk
+	private int PID;
+	private UserProcess parent;
+	private HashMap<Integer, ChildProcess> children = new HashMap<Integer, ChildProcess>();
 }
