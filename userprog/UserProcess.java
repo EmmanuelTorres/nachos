@@ -34,7 +34,9 @@ public class UserProcess {
 		ProcessID=GenerateID++;//whenever we create a new process we allocate it a unique positive id the downside of this way is that we are limited to 2^32 processes
 		currentStatus=-1;// an invalid status
 		Machine.interrupt().restore(intStatus);//restore the interupt
-
+		filedescriptors = new OpenFile[16];
+		filedescriptors[0] = UserKernel.console.openForReading();
+		filedescriptors[1] = UserKernel.console.openForWriting();
     }
     
     /**
@@ -482,4 +484,6 @@ public class UserProcess {
 	
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+
+    protected OpenFile[] filedescriptors;
 }
