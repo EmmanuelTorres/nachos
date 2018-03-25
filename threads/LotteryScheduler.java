@@ -260,13 +260,13 @@ public class LotteryScheduler extends Scheduler
 
 			// After our own effectiveTickets has been updated, we can proceed with
 			// updating the effectiveTickets of all the resources we're waiting on
-			for (LotteryQueue lq : waitResourceList)
+			for (LotteryQueue lotteryQueue : waitResourceList)
 			{
-				lq.updateEffectiveTickets();
+				lotteryQueue.updateEffectiveTickets();
 
-				if (lq.transferTickets && lq.resourceHolder != null)
+				if (lotteryQueue.transferTickets && lotteryQueue.resourceHolder != null)
 				{
-					lq.resourceHolder.fullUpdateEffectiveTickets();
+					lotteryQueue.resourceHolder.fullUpdateEffectiveTickets();
 				}
 			}
 		}
