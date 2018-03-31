@@ -364,15 +364,17 @@ public class UserProcess {
 		// and finally reserve 1 page for arguments
 		numPages++;
 
-		for(int i = 0; i < numPages; i++)
-		{
-			int physPageNum = UserKernel.getFreePage();
-
-			// TranslationEntry(int vpgnum, int physpgnum, bool valid,
-			//								bool readOnly, bool used, bool dirty)
-			pageTable[i] = new TranslationEntry(i, physPageNum, true,
-												false, false, false);
-		}
+		// Possible changes to be made
+		
+		// for(int i = 0; i < numPages; i++)
+		// {
+		// 	int physPageNum = UserKernel.getFreePage();
+		//
+		// 	// TranslationEntry(int vpgnum, int physpgnum, bool valid,
+		// 	//								bool readOnly, bool used, bool dirty)
+		// 	pageTable[i] = new TranslationEntry(i, physPageNum, true,
+		// 										false, false, false);
+		// }
 
 		if (!loadSections())
 			return false;
