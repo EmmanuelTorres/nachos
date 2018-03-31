@@ -23,7 +23,7 @@ public class UserProcess {
     /**
      * Allocate a new process.
      */
-	 
+
     public UserProcess() {
 		int numPhysPages = Machine.processor().getNumPhysPages();
 		pageTable = new TranslationEntry[numPhysPages];
@@ -38,7 +38,7 @@ public class UserProcess {
 		filedescriptors[0] = UserKernel.console.openForReading();
 		filedescriptors[1] = UserKernel.console.openForWriting();
     }
-    
+
     /**
      * Allocate and return a new process of the correct class. The class name
      * is specified by the <tt>nachos.conf</tt> key
@@ -61,7 +61,7 @@ public class UserProcess {
     public boolean execute(String name, String[] args) {
 		if (!load(name, args))
 			return false;
-		
+
 		new UThread(this).setName(name).fork();
 
 		return true;
@@ -310,7 +310,7 @@ public class UserProcess {
      */
     private boolean load(String name, String[] args) {
 		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
-		
+
 		OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
 		if (executable == null) {
 			Lib.debug(dbgProcess, "\topen failed");
@@ -328,7 +328,7 @@ public class UserProcess {
 
 		// make sure the sections are contiguous and start at page 0
 		numPages = 0;
-		for (int s=0; s<coff.getNumSections(); s++) 
+		for (int s=0; s<coff.getNumSections(); s++)
 		{
 			CoffSection section = coff.getSection(s);
 			if (section.getFirstVPN() != numPages)
@@ -355,7 +355,7 @@ public class UserProcess {
 		}
 
 		// program counter initially points at the program entry point
-		initialPC = coff.getEntryPoint();	
+		initialPC = coff.getEntryPoint();
 
 		// next comes the stack; stack pointer initially points to top of it
 		numPages += stackPages;
@@ -368,9 +368,9 @@ public class UserProcess {
 		{
 			int physPageNum = UserKernel.getFreePage();
 
-			// TranslationEntry(int vpgnum, int physpgnum, bool valid, 
+			// TranslationEntry(int vpgnum, int physpgnum, bool valid,
 			//								bool readOnly, bool used, bool dirty)
-			pageTable[i] = new TranslationEntry(i, physPageNum, true, 
+			pageTable[i] = new TranslationEntry(i, physPageNum, true,
 												false, false, false);
 		}
 
@@ -417,20 +417,24 @@ public class UserProcess {
 		for (int s=0; s<coff.getNumSections(); s++)
 		{
 			CoffSection section = coff.getSection(s);
-			
+
 			Lib.debug(dbgProcess, "\tinitializing " + section.getName()
 				  + " section (" + section.getLength() + " pages)");
 
-			for (int i=0; i<section.getLength(); i++) 
+			for (int i=0; i<section.getLength(); i++)
 			{
 				int vpn = section.getFirstVPN()+i;
 				TranslationEntry translation = pageTable[vpn];
 				translation.readOnly = section.isReadOnly();
 
+				// check to see if the page is within the physical bounds
+				if(!withinBounds(translation.ppn))
+					return false;
+
 				section.loadPage(i, translation.ppn);
 			}
 		}
-
+		// scp -r userprog s18-4l-g5@klwin00.ucmerced.edu:~/P2/nachos
 		return true;
     }
 
@@ -725,7 +729,7 @@ public class UserProcess {
 		filedescriptors[fd] = openfile;
 		return 0;
 	}
-	
+
 	public int handleRead(int fd, int buffer, int size) {
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
@@ -744,7 +748,7 @@ public class UserProcess {
 		return openfile.write(temp, 0, size);
 		// check actual write size
 	}
-	
+
 	public int handleClose(int fd) {
 		OpenFile openfile = filedescriptors[fd];
 		openfile.close();
@@ -779,8 +783,8 @@ public class UserProcess {
 						   );
 			processor.writeRegister(Processor.regV0, result);
 			processor.advancePC();
-			break;				       
-						   
+			break;
+
 		default:
 			Lib.debug(dbgProcess, "Unexpected exception: " +
 				  Processor.exceptionNames[cause]);
@@ -815,7 +819,7 @@ public class UserProcess {
     }
 
     public int ProcessID ;//id of the current process
-	private static int GenerateID = 0;//generate unique id 
+	private static int GenerateID = 0;//generate unique id
 	private int currentstatus;
 	private Semaphore joined;
 	/** The program being run by this process. */
@@ -828,10 +832,10 @@ public class UserProcess {
 
     /** The number of pages in the program's stack. */
     protected final int stackPages = 8;
-    
+
     private int initialPC, initialSP;
     private int argc, argv;
-	
+
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
 
