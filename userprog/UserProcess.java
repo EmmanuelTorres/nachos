@@ -703,17 +703,17 @@ public class UserProcess {
 			Processes.get(pid);
 		}
 		catch(ArrayIndexOutOfBoundsException e){
-			return -1; //this only happens if suppplied faulty pid 
+			return -1; //this only happens if suppplied faulty pid
 		}
 		catch(NullPointerException e){
-			return -1; // if the process was null 
+			return -1; // if the process was null
 		}
 		catch(Exception e){
 			return -1; // not sure what would happen here
 		}
 		Processes.get(pid).joined.P();    // process index is the same as the process id. Call P() to signal the join
 
-		if (writeVirtualMemory(status, Lib.bytesFromInt(Processes.get(pid).currentstatus)) == 4 && Processes.get(pid).NormExit)
+		if (writeVirtualMemory(status, Lib.bytesFromInt(Processes.get(pid).currentStatus)) == 4 && Processes.get(pid).NormExit)
 		{
 			return 1;
 		}
@@ -842,7 +842,6 @@ public class UserProcess {
 
     public int ProcessID ;//id of the current process
 	private static int GenerateID = 0;//generate unique id
-	private int currentstatus;
 	private Semaphore joined;
 	/** The program being run by this process. */
     protected Coff coff;
