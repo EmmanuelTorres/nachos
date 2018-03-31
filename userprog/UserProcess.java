@@ -25,18 +25,19 @@ public class UserProcess {
      */
 
     public UserProcess() {
+		boolean intStatus = Machine.interrupt().disable();//disable he interupt
 		int numPhysPages = Machine.processor().getNumPhysPages();
 		pageTable = new TranslationEntry[numPhysPages];
 		for (int i=0; i<numPhysPages; i++)
 			pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
-		boolean intStatus = Machine.interrupt().disable();//disable he interupt
 		joined = new Semaphore(0);// allocate memory for a semaphore we allocate when P when we join and V when we close
 		ProcessID=GenerateID++;//whenever we create a new process we allocate it a unique positive id the downside of this way is that we are limited to 2^32 processes
 		currentStatus=-1;// an invalid status
-		Machine.interrupt().restore(intStatus);//restore the interupt
 		filedescriptors = new OpenFile[16];
 		filedescriptors[0] = UserKernel.console.openForReading();
 		filedescriptors[1] = UserKernel.console.openForWriting();
+		Processes.add(ProcessID,this);//this guarantees that the index will be the process ID even if a desynch happens if the machine interrup were to fail and another process gets added in before.
+		Machine.interrupt().restore(intStatus);//restore the interupt
     }
 
     /**
@@ -699,7 +700,7 @@ public class UserProcess {
             Removes the mapping for a key from this map if it is present (optional operation).
         */
 		try{
-			Process.get(pid);
+			Processes.get(pid);
 		}
 		catch(ArrayIndexOutOfBoundsException e){
 			return -1; //this only happens if suppplied faulty pid 
