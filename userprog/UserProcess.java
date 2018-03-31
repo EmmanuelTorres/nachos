@@ -153,58 +153,62 @@ public class UserProcess {
     public int readVirtualMemory(int vaddr, byte[] dest, int destPos,int length)
     {
 		Lib.assertTrue(destPos >= 0 && length >= 0 && destPos+length <= dest.length);
+		// 	    System.arraycopy(physicalMemory, srcPos, dest, destPos, memoryRead);
 
-		// The amount of memory read in bytes
-	    // Return this amount in the case of a failure or success
-		int memoryRead = 0;
+	    // The amount of memory read in bytes
+	    int memoryRead = 0;
 
-		// Physical memory array from the CPU
-		byte[] physicalMemory = Machine.processor().getMemory();
+	    byte[] physicalMemory = Machine.processor().getMemory();
 
-		int startingVirtualPageNumber = Processor.pageFromAddress(vaddr);
-		int virtualOffset = Processor.offsetFromAddress(vaddr);
-		int endingVirtualPageNumber = Processor.pageFromAddress(vaddr + length);
+	    int firstVirtualPage = Processor.pageFromAddress(vaddr);
+	    int virtualOffset = Processor.offsetFromAddress(vaddr);
+	    int lastVirtualPage = Processor.pageFromAddress(vaddr + length);
 
-		// The translationEntry in our pageTable
+	    // The tableEntry in our pageTable
 	    // Has a few checks in the helper function to make our life easier
-		TranslationEntry translationEntry = getPageTableEntry(startingVirtualPageNumber);
+	    TranslationEntry tableEntry = getPageTableEntry(firstVirtualPage);
 
-		// If the entry is not within bounds or the pageTable is null
-		if (translationEntry == null)
-		{
-			// we return the memory read (0 at this point)
-			return memoryRead;
-		}
-
-		// Set its used bit to true
-	    translationEntry.used = true;
+	    // If the entry is not within bounds or the pageTable is null OR we can't write to this
+	    if (tableEntry == null || tableEntry.readOnly)
+	    {
+		    // we return the memory read (0 at this point)
+		    return memoryRead;
+	    }
 
 	    // The new length for system.arraycopy is the smallest, either length or pageSize - virtualOffset
 	    memoryRead = Math.min(length, pageSize - virtualOffset);
-	    int srcPos = Processor.makeAddress(translationEntry.ppn, virtualOffset);
 
-	    // System.arraycopy(Obj src, int srcPos, Obj dest, int destPos, int length)
+	    // The starting position in the source array
+	    int srcPos = Processor.makeAddress(tableEntry.ppn, virtualOffset);
+
+	    // More information on System.arraycopy on TutorialsPoint
+	    // System.arraycopy(Obj srcArray, int startingPositionInSrc, Obj destArray, int destPositionStart, int length)
 	    System.arraycopy(physicalMemory, srcPos, dest, destPos, memoryRead);
+
+	    tableEntry.used = true;
 
 	    destPos += memoryRead;
 
-	    for (int i = startingVirtualPageNumber + 1; i <= endingVirtualPageNumber; i++)
+	    for (int i = firstVirtualPage + 1; i <= lastVirtualPage; i++)
 	    {
-	    	translationEntry = getPageTableEntry(i);
+		    tableEntry = getPageTableEntry(i);
 
-		    // If the entry is not within bounds or the pageTable is null
-		    if (translationEntry == null)
+		    // If the entry is not within bounds or the pageTable is null OR we can't write to this
+		    if (tableEntry == null || !tableEntry.valid)
 		    {
-			    // we return the memory read (0 at this point)
+			    // we return the memory read
 			    return memoryRead;
 		    }
 
-		    int currentAmount = Math.min(length - memoryRead, pageSize);
-		    int currentSrcPos = Processor.makeAddress(translationEntry.ppn, 0);
+		    int currentLength = Math.min(length - memoryRead, pageSize);
+		    int currentSrcPos = Processor.makeAddress(tableEntry.ppn, 0);
 
-		    System.arraycopy(physicalMemory, currentSrcPos, dest, destPos, currentAmount);
-		    memoryRead += currentAmount;
-		    destPos += currentAmount;
+		    System.arraycopy(physicalMemory, currentSrcPos, dest, destPos, currentLength);
+
+		    tableEntry.used = true;
+
+		    memoryRead += currentLength;
+		    destPos += currentLength;
 	    }
 
 	    return memoryRead;
@@ -241,22 +245,20 @@ public class UserProcess {
 	    Lib.assertTrue(destPos >= 0 && length >= 0 && destPos+length <= dest.length);
 
 	    // The amount of memory read in bytes
-	    // Return this amount in the case of a failure or success
 	    int memoryRead = 0;
 
-	    // Physical memory array from the CPU
 	    byte[] physicalMemory = Machine.processor().getMemory();
 
-	    int startingVirtualPageNumber = Processor.pageFromAddress(vaddr);
+	    int firstVirtualPage = Processor.pageFromAddress(vaddr);
 	    int virtualOffset = Processor.offsetFromAddress(vaddr);
-	    int endingVirtualPageNumber = Processor.pageFromAddress(vaddr + length);
+	    int lastVirtualPage = Processor.pageFromAddress(vaddr + length);
 
-	    // The translationEntry in our pageTable
+	    // The tableEntry in our pageTable
 	    // Has a few checks in the helper function to make our life easier
-	    TranslationEntry translationEntry = getPageTableEntry(startingVirtualPageNumber);
+	    TranslationEntry tableEntry = getPageTableEntry(firstVirtualPage);
 
 	    // If the entry is not within bounds or the pageTable is null OR we can't write to this
-	    if (translationEntry == null || translationEntry.readOnly)
+	    if (tableEntry == null || !tableEntry.valid || tableEntry.readOnly)
 	    {
 		    // we return the memory read (0 at this point)
 		    return memoryRead;
@@ -265,37 +267,43 @@ public class UserProcess {
 	    // The new length for system.arraycopy is the smallest, either length or pageSize - virtualOffset
 	    memoryRead = Math.min(length, pageSize - virtualOffset);
 
-	    int srcPos = Processor.makeAddress(translationEntry.ppn, virtualOffset);
+	    // The starting position in the source array
+	    int srcPos = Processor.makeAddress(tableEntry.ppn, virtualOffset);
 
-	    // System.arraycopy(Obj src, int srcPos, Obj dest, int destPos, int length)
+	    // More information on System.arraycopy on TutorialsPoint
+	    // System.arraycopy(Obj srcArray, int startingPositionInSrc, Obj destArray, int destPositionStart, int length)
 	    System.arraycopy(dest, destPos, physicalMemory, srcPos, memoryRead);
+
+	    tableEntry.used = true;
+	    tableEntry.dirty = true;
 
 	    destPos += memoryRead;
 
-	    for (int i = startingVirtualPageNumber + 1; i <= endingVirtualPageNumber; i++)
+	    for (int i = firstVirtualPage + 1; i <= lastVirtualPage; i++)
 	    {
-		    translationEntry = getPageTableEntry(i);
+		    tableEntry = getPageTableEntry(i);
 
 		    // If the entry is not within bounds or the pageTable is null OR we can't write to this
-		    if (translationEntry == null || translationEntry.readOnly)
+		    if (tableEntry == null || tableEntry.readOnly)
 		    {
-			    // we return the memory read (0 at this point)
+			    // we return the memory read
 			    return memoryRead;
 		    }
 
-		    int currentAmount = Math.min(length - memoryRead, pageSize);
-		    int currentSrcPos = Processor.makeAddress(translationEntry.ppn, 0);
+		    int currentLength = Math.min(length - memoryRead, pageSize);
+		    int currentSrcPos = Processor.makeAddress(tableEntry.ppn, 0);
 
-		    System.arraycopy(dest, destPos, physicalMemory, currentSrcPos, currentAmount);
-		    memoryRead += currentAmount;
-		    destPos += currentAmount;
+		    System.arraycopy(dest, destPos, physicalMemory, currentSrcPos, currentLength);
+
+		    tableEntry.used = true;
+		    // Table entry has been changed, so we flip the dirty bit to true
+		    tableEntry.dirty = true;
+
+		    memoryRead += currentLength;
+		    destPos += currentLength;
 	    }
 
 	    return memoryRead;
-    }
-
-    private boolean checkPhysPage(int physPageNum){
-    	return ( physPageNum < 0 || physPageNum >= Machine.processor().getNumPhysPages() );
     }
 
     /**
@@ -365,7 +373,7 @@ public class UserProcess {
 		numPages++;
 
 		// Possible changes to be made
-		
+
 		// for(int i = 0; i < numPages; i++)
 		// {
 		// 	int physPageNum = UserKernel.getFreePage();
@@ -481,7 +489,7 @@ public class UserProcess {
 	{
 		int pageNumber = Processor.pageFromAddress(address);
 
-		return pageNumber >= 0 && pageNumber <= numPages;
+		return pageNumber >= 0 && pageNumber < numPages;
 	}
 
 
