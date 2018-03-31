@@ -687,31 +687,31 @@ public class UserProcess {
 			KThread.currentThread().finish();// finish the thread
 	}
 
-	public int handleJoin(int pid, int status){
-		// if the pid supplied does not have an associated child id which means you shouldnt join
-		if(children.size() == 0 || !children.containsKey(pid) )
+	// -1 if we attempt to join something that isn't a child
+	// 1 if we exit okay
+	// 0 if we exit due to an unhandled exception
+	public int handleJoin(int pid, int status)
+	{
+		// If the address is out of bounds, we return -1
+		if (!withinBounds(status))
+		{
 			return -1;
+		}
 
-		// start the join since we are joining and dont want to rejoin with the child we have to remove the mapping
+		// If the children map is empty or we don't contain the pid,
+		// we return -1
+		if (children.isEmpty() || !children.containsKey(pid))
+		{
+			return -1;
+		}
 
-		children.remove(pid);    // according to java docs on map
-        /*
-            remove(Object key)
-            Removes the mapping for a key from this map if it is present (optional operation).
-        */
-		try{
-			Processes.get(pid);
-		}
-		catch(ArrayIndexOutOfBoundsException e){
-			return -1; //this only happens if suppplied faulty pid
-		}
-		catch(NullPointerException e){
-			return -1; // if the process was null
-		}
-		catch(Exception e){
-			return -1; // not sure what would happen here
-		}
-		Processes.get(pid).joined.P();    // process index is the same as the process id. Call P() to signal the join
+		// Guaranteed to not be null because of the above if statement
+		ChildProcess child = children.get(pid);
+
+		// If the UserProcess of the child is null then we return 0
+		if (child.process == null) return 0;
+
+		children.remove(pid);
 
 		if (writeVirtualMemory(status, Lib.bytesFromInt(Processes.get(pid).currentStatus)) == 4 && Processes.get(pid).NormExit)
 		{
