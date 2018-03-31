@@ -191,7 +191,7 @@ public class LotteryScheduler extends Scheduler
 
 				if (resourceHolder != null)
 				{
-					resourceHolder.fullUpdateEffectiveTickets();
+					resourceHolder.updateAllEffectiveTickets();
 				}
 			}
 		}
@@ -238,7 +238,7 @@ public class LotteryScheduler extends Scheduler
 		 * This is mainly called when a change in the lists has occurred, or when a change in
 		 * the tickets throughout the lists has occurred
 		 */
-		private void fullUpdateEffectiveTickets()
+		private void updateAllEffectiveTickets()
 		{
 			effectiveTickets = tickets;
 
@@ -251,9 +251,9 @@ public class LotteryScheduler extends Scheduler
 					// We update our own effectiveTickets before continuing with updating the
 					// effectiveTickets of the list of resources we're waiting on
 					// THIS IS IMPORTANT.
-					for (LotteryThreadState lts : lotteryQueue.waitingResources)
+					for (LotteryThreadState lotteryThreadState : lotteryQueue.waitingResources)
 					{
-						effectiveTickets += lts.effectiveTickets;
+						effectiveTickets += lotteryThreadState.effectiveTickets;
 					}
 				}
 			}
@@ -266,7 +266,7 @@ public class LotteryScheduler extends Scheduler
 
 				if (lotteryQueue.transferTickets && lotteryQueue.resourceHolder != null)
 				{
-					lotteryQueue.resourceHolder.fullUpdateEffectiveTickets();
+					lotteryQueue.resourceHolder.updateAllEffectiveTickets();
 				}
 			}
 		}
@@ -280,7 +280,7 @@ public class LotteryScheduler extends Scheduler
 
 			// Since a change in tickets has occurred, we need to update the effectiveTickets on all
 			// the lotteryQueues we own and are waiting on
-			fullUpdateEffectiveTickets();
+			updateAllEffectiveTickets();
 		}
 
 		/*
@@ -303,7 +303,7 @@ public class LotteryScheduler extends Scheduler
 				if (lotteryQueue.transferTickets && lotteryQueue.resourceHolder != null)
 				{
 					// Update the effectiveTickets on all the lotteryQueues we own and are waiting on
-					lotteryQueue.resourceHolder.fullUpdateEffectiveTickets();
+					lotteryQueue.resourceHolder.updateAllEffectiveTickets();
 				}
 				// Otherwise, we just update the effectiveTickets belonging to the lotteryQueue
 				// This is only done when the lotteryQueue is new
@@ -347,7 +347,7 @@ public class LotteryScheduler extends Scheduler
 				waitResourceList.remove(lotteryQueue);
 
 				// Update the effectiveTickets on all the LotteryQueues we own and are waiting on
-				fullUpdateEffectiveTickets();
+				updateAllEffectiveTickets();
 			}
 		}
 
@@ -366,7 +366,7 @@ public class LotteryScheduler extends Scheduler
 				lotteryQueue.resourceHolder = null;
 
 				// Update the effectiveTickets on all the lotteryQueues we own and are waiting on
-				fullUpdateEffectiveTickets();
+				updateAllEffectiveTickets();
 			}
 		}
 	}
