@@ -698,7 +698,18 @@ public class UserProcess {
             remove(Object key)
             Removes the mapping for a key from this map if it is present (optional operation).
         */
-
+		try{
+			Process.get(pid);
+		}
+		catch(ArrayIndexOutOfBoundsException e){
+			return -1; //this only happens if suppplied faulty pid 
+		}
+		catch(NullPointerException e){
+			return -1; // if the process was null 
+		}
+		catch(Exception e){
+			return -1; // not sure what would happen here
+		}
 		Processes.get(pid).joined.P();    // process index is the same as the process id. Call P() to signal the join
 
 		if (writeVirtualMemory(status, Lib.bytesFromInt(Processes.get(pid).currentstatus)) == 4 && Processes.get(pid).NormExit)
