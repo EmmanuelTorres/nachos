@@ -688,7 +688,7 @@ public class UserProcess {
 
 	public int handleJoin(int pid, int status){
 		// if the pid supplied does not have an associated child id which means you shouldnt join
-		if(!children.containsKey(pid))
+		if(children.size() == 0 || !children.containsKey(pid) )
 			return -1;
 
 		// start the join since we are joining and dont want to rejoin with the child we have to remove the mapping
