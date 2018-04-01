@@ -493,6 +493,10 @@ public class UserProcess {
 
 		return pageNumber >= 0 && pageNumber < numPages;
 	}
+	
+	private boolean isInvalidDescriptor(int fd) {
+        	return fd < 0 || fd > 15 || filedescriptors[fd] == null;
+	}
 
 
     private static final int
@@ -760,6 +764,7 @@ public class UserProcess {
 	}
 
 	public int handleRead(int fd, int buffer, int size) {
+        	if(isInvalidDescriptor(fd)) return -1;
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
         int memory_read = openfile.read(temp, 0, size);
@@ -774,6 +779,7 @@ public class UserProcess {
 	}
 
 	public int handleWrite(int fd, int buffer, int size) {
+        	if(isInvalidDescriptor(fd)) return -1;
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
 		if( readVirtualMemory(buffer, temp) != size )
@@ -784,7 +790,7 @@ public class UserProcess {
 
 	public int handleClose(int fd) {
         // check if the fd is out of bounds or if referencing a null file descriptor
-        if(fd < 0 || fd > 15 || filedescriptors[fd] == null) return -1;
+        if(isInvalidDescriptor(fd)) return -1;
 
         filedescriptors[fd].close();
 		filedescriptors[fd] = null;
