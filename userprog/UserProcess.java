@@ -765,6 +765,7 @@ public class UserProcess {
 
 	public int handleRead(int fd, int buffer, int size) {
         	if(isInvalidDescriptor(fd)) return -1;
+		if(!withinBounds(buffer)) return -1;
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
         int memory_read = openfile.read(temp, 0, size);
@@ -780,6 +781,7 @@ public class UserProcess {
 
 	public int handleWrite(int fd, int buffer, int size) {
         	if(isInvalidDescriptor(fd)) return -1;
+		if(!withinBounds(buffer)) return -1;
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
 		if( readVirtualMemory(buffer, temp) != size )
