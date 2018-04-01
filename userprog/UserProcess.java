@@ -84,6 +84,19 @@ public class UserProcess {
 		Machine.processor().setPageTable(pageTable);
     }
 
+    /**
+     * A helper function to determine whether a virtual address is within
+     * the bounds of our process' pageTable
+     * @param vaddr The virtual address we want to check
+     * @return true if we're within the bounds of pages
+     */
+    private boolean withinPageBounds(int vaddr) {
+            // The page number the virtual address belongs to
+            int pageNumber = Processor.pageFromAddress(vaddr);
+
+            return pageNumber >= 0 && pageNumber < numPages;
+    }
+
     private TranslationEntry getPageTableEntry(int virtualPageNumber)
     {
     	// If the pageTable is null or if the virtualPageNumber is not within bounds
