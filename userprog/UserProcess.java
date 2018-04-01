@@ -766,10 +766,12 @@ public class UserProcess {
 	public int handleRead(int fd, int buffer, int size) {
         	if(isInvalidDescriptor(fd)) return -1;
 		if(!withinBounds(buffer)) return -1;
+
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
-        int memory_read = openfile.read(temp, 0, size);
-        int memory_written = writeVirtualMemory(buffer, temp);
+
+	        int memory_read = openfile.read(temp, 0, size);
+        	int memory_written = writeVirtualMemory(buffer, temp);
 
 		if( memory_read == -1 )
 			return -1;
@@ -782,22 +784,25 @@ public class UserProcess {
 	public int handleWrite(int fd, int buffer, int size) {
         	if(isInvalidDescriptor(fd)) return -1;
 		if(!withinBounds(buffer)) return -1;
+
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
+
 		if( readVirtualMemory(buffer, temp) != size )
 			return -1;
+
 		return openfile.write(temp, 0, size);
 		// check actual write size
 	}
 
 	public int handleClose(int fd) {
-        // check if the fd is out of bounds or if referencing a null file descriptor
-        if(isInvalidDescriptor(fd)) return -1;
+		// check if the fd is out of bounds or if referencing a null file descriptor
+		if(isInvalidDescriptor(fd)) return -1;
 
-        filedescriptors[fd].close();
+		filedescriptors[fd].close();
 		filedescriptors[fd] = null;
 
-        return 0;
+		return 0;
 	}
 
 	public int handleUnlink(String name) {
