@@ -170,7 +170,7 @@ public class UserProcess {
 	    TranslationEntry tableEntry = getPageTableEntry(firstVirtualPage);
 
 	    // If the entry is not within bounds or the pageTable is null OR we can't write to this
-	    if (tableEntry == null || tableEntry.readOnly)
+	    if (tableEntry == null || !tableEntry.valid)
 	    {
 		    // we return the memory read (0 at this point)
 		    return memoryRead;
@@ -602,7 +602,7 @@ public class UserProcess {
 	private int handleExec(int fileNameAddress, int argumentsPointerArray, int numArguments)
 	{
 		// If either of the addresses given are not within bounds or argc is a negative
-		if (!withinBounds(fileNameAddress) || !withinBounds(argumentsPointerArray) || argc < 0)
+		if (!withinBounds(fileNameAddress) || !withinBounds(argv) || argc < 0)
 		{
 			// we exit
 			handleExit(-1);
@@ -621,22 +621,22 @@ public class UserProcess {
 
 		// The arguments we'll be passing onto the new child process
 		// TODO: Check if we can just shift numArguments left by 2 (<< 2)
-		byte argumentsArray[] = new byte[numArguments * 4];
+		byte argumentsArray[] = new byte[argumentsPointerArray * 4];
 
 		// If the size of the two aren't the same, that means readVirtualMemory couldn't read the entire array
 		// Maybe the size is more than MAX_STRING_LENGTH, maybe its less
 		// Either way, if the sizes aren't the same
-		if (argumentsArray.length != readVirtualMemory(argumentsPointerArray, argumentsArray))
+		if (argumentsArray.length != readVirtualMemory(numArguments, argumentsArray))
 		{
 			// we return unsuccessfully
 			return -1;
 		}
 
 		// The String arguments going to the new child
-		String arguments[] = new String[numArguments];
+		String arguments[] = new String[argumentsPointerArray];
 
 		// Assign values to the arguments array
-		for (int i = 0; i < numArguments; i++)
+		for (int i = 0; i < argumentsPointerArray; i++)
 		{
 			// Set the memory address to the next argument
 			// Notice that the offset has to be multiplied by 4
@@ -765,7 +765,7 @@ public class UserProcess {
         int memory_written = writeVirtualMemory(buffer, temp);
 
 		if( memory_read == -1 )
-			return -1
+			return -1;
 		if( memory_written != memory_read )
 			return -1;
 
