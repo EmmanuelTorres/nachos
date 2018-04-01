@@ -764,11 +764,11 @@ public class UserProcess {
 		if( openfile.read(temp, 0, size) == -1 )
 			return -1;
 
-        int memory_read = readVirtualMemory(buffer, temp);
-		if( memory_read != size )
+        int amount_successful = writeVirtualMemory(buffer, temp);
+		if( amount_successful != size )
 			return -1;
 
-		return memory_read;
+		return amount_successful;
 	}
 
 	public int handleWrite(int fd, int buffer, int size) {
