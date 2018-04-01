@@ -761,14 +761,15 @@ public class UserProcess {
 	public int handleRead(int fd, int buffer, int size) {
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
-		if( openfile.read(temp, 0, size) == -1 )
+        int memory_read = openfile.read(temp, 0, size);
+        int memory_written = writeVirtualMemory(buffer, temp);
+
+		if( memory_read == -1 )
+			return -1
+		if( memory_written != memory_read )
 			return -1;
 
-        int amount_successful = writeVirtualMemory(buffer, temp);
-		if( amount_successful != size )
-			return -1;
-
-		return amount_successful;
+		return memory_read;
 	}
 
 	public int handleWrite(int fd, int buffer, int size) {
@@ -781,8 +782,7 @@ public class UserProcess {
 	}
 
 	public int handleClose(int fd) {
-		OpenFile openfile = filedescriptors[fd];
-		openfile.close();
+        filedescriptors[fd].close();
 		filedescriptors[fd] = null;
 		return 0;
 	}
