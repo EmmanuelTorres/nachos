@@ -170,7 +170,7 @@ public class UserProcess {
 	    TranslationEntry tableEntry = getPageTableEntry(firstVirtualPage);
 
 	    // If the entry is not within bounds or the pageTable is null OR we can't write to this
-	    if (tableEntry == null || !tableEntry.valid)
+	    if (tableEntry == null || tableEntry.readOnly)
 	    {
 		    // we return the memory read (0 at this point)
 		    return memoryRead;
