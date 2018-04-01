@@ -706,8 +706,14 @@ public class UserProcess {
 		}
 
 		// Guaranteed to not be null because of the above if statement
-		ChildProcess child = children.get(pid);
-
+		//ChildProcess child = children.get(pid);
+		ChildProcess child;
+		
+		if(children.get(pid) == null) // check if the pid supplied actually has a process assigned to it
+			return -1;
+		else
+			child = children.get(pid); // if it does has it make a "pointer" to it so we can do stuff 
+		
 		// If the UserProcess of the child is null then we return 0
 		if (child.process == null) return 0;
 
