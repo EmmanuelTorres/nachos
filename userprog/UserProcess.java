@@ -63,7 +63,8 @@ public class UserProcess {
 		if (!load(name, args))
 			return false;
 
-		new UThread(this).setName(name).fork();
+		thread = (UThread) new UThread(this).setName(name);
+        thread.fork();
 
 		return true;
     }
@@ -716,7 +717,7 @@ public class UserProcess {
 
 		// If the UserProcess of the child is null then we return 0
 		if (child.process == null) return 0;
-
+        child.process.thread.join();
 		children.remove(pid);
 
 		if (writeVirtualMemory(status, Lib.bytesFromInt(Processes.get(pid).currentStatus)) == 4 && Processes.get(pid).NormExit)
@@ -880,6 +881,7 @@ public class UserProcess {
 	// May need to be static to comply with Patrick's code -- idk
 	private int PID;
 	private UserProcess parent;
+    protected UThread thread;
 	private HashMap<Integer, ChildProcess> children = new HashMap<Integer, ChildProcess>();
 	// A Map of Child ids, this has the mapping of child ID -> Parent process
 	private static ArrayList<UserProcess> Processes = new ArrayList<UserProcess>();
