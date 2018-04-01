@@ -782,9 +782,13 @@ public class UserProcess {
 	}
 
 	public int handleClose(int fd) {
+        // check if the fd is out of bounds or if referencing a null file descriptor
+        if(fd < 0 || fd > 15 || filedescriptors[fd] == null) return -1;
+
         filedescriptors[fd].close();
 		filedescriptors[fd] = null;
-		return 0;
+
+        return 0;
 	}
 
 	public int handleUnlink(String name) {
