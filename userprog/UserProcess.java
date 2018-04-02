@@ -689,7 +689,8 @@ public class UserProcess {
 		// Remove the isRunning process from our list of children
 		children.remove(childProcessId);
 
-		if (child == null) {
+		// If the child exited abnormally (unhandled exception), return 0
+		if (child == null || child.currentStatus == -1) {
 			return 0;
 		}
 
