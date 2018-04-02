@@ -802,8 +802,10 @@ public class UserProcess {
 	}
 
 	public int handleClose(int fd) {
-		// check if the fd is out of bounds or if referencing a null file descriptor
-		if(isInvalidDescriptor(fd)) return -1;
+		if(isInvalidDescriptor(fd)) {
+			UThread.currentThread().finish();
+			return -1;
+		}
 
 		filedescriptors[fd].close();
 		filedescriptors[fd] = null;
