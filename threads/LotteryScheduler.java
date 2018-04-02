@@ -92,7 +92,7 @@ public class LotteryScheduler extends Scheduler
 		// Determines whether or not to use the lottery system
 		// A replacement value for transferPriority
 		private boolean transferTickets;
-
+		
 		LotteryQueue(boolean transferTickets)
 		{
 			this.transferTickets = transferTickets;
@@ -102,7 +102,15 @@ public class LotteryScheduler extends Scheduler
 		public void waitForAccess(KThread thread)
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
-			getLotteryThreadState(thread).waitForAccess(this);
+			
+			// Finds the ThreadState belonging to this KThread thread
+			LotteryThreadState threadState = getLotteryThreadState(thread);
+			
+			// Add the parameter thread to our waitingResources
+			waitingResources.add(threadState);
+			
+			// Add our priorityQueue to the parameter thread's waitResourceList
+			threadState.waitForAccess(this);
 		}
 
 
@@ -115,36 +123,56 @@ public class LotteryScheduler extends Scheduler
 		@Override
 		public KThread nextThread()
 		{
+			// Get the thread with the largest priority belonging to this PriorityQueue
+			LotteryThreadState largestPriority = pickNextThread();
+			
+			// If it isn't null
+			if (largestPriority != null)
+			{
+				// Remove this ThreadState from our list of waitingResources
+				waitingResources.remove(largestPriority);
+				
+				// Acquire this new ThreadState as the new owner
+				acquire(largestPriority.thread);
+				
+				// Return the thread with the largest priority
+				return largestPriority.thread;
+			}
+			
+			return null;
+		}
+		
+		private LotteryThreadState pickNextThread()
+		{
 			Lib.assertTrue(Machine.interrupt().disabled());
-
+			
 			// If there are no KThreads in the waitResourceList queue, the next thread is null
 			if (waitingResources.isEmpty())
 			{
 				return null;
 			}
-
+			
 			// Initialize a KThread to be returned
-			KThread luckyThread = null;
-
+			LotteryThreadState luckiestThreadState = waitingResources.getFirst();
+			
 			// Assign a lucky value of a ticket to a random number
 			int luckyTicketValue = new Random().nextInt(totalEffectiveTickets)+1;
-
+			
 			// Iterate through all waitingResources
 			for (LotteryThreadState currentThreadState : waitingResources)
 			{
 				// Decrement the lucky ticket value
 				luckyTicketValue -= currentThreadState.getEffectiveTickets();
-
+				
 				// When the luckyTicketValue is reached, we return the thread that won
 				if (luckyTicketValue <= 0)
 				{
-					luckyThread = currentThreadState.thread;
-					currentThreadState.acquire(this);
+					luckiestThreadState = currentThreadState;
 					break;
 				}
 			}
-
-			return luckyThread;
+			
+			return luckiestThreadState;
 		}
 
 		/*
@@ -155,7 +183,24 @@ public class LotteryScheduler extends Scheduler
 		public void acquire(KThread thread)
 		{
 			Lib.assertTrue(Machine.interrupt().disabled());
-			getLotteryThreadState(thread).acquire(this);
+			
+			LotteryThreadState oldOwner = resourceHolder;
+			
+			// If the old owner is not null
+			if (oldOwner != null)
+			{
+				// Remove ourselves from the old owner's resourceList
+				oldOwner.resourceList.remove(this);
+			}
+			
+			// Get the ThreadState of the new owner, the KThread thread in the parameter
+			LotteryThreadState newOwner = getLotteryThreadState(thread);
+			
+			// Set the new resourceHolder as the newly created ThreadState
+			resourceHolder = newOwner;
+			
+			// Acquire ourselves into the new owner's resourceList
+			newOwner.acquire(this);
 		}
 
 		@Override
@@ -175,24 +220,6 @@ public class LotteryScheduler extends Scheduler
 			for (LotteryThreadState currentThreadState : waitingResources)
 			{
 				totalEffectiveTickets += currentThreadState.getEffectiveTickets();
-			}
-		}
-
-		/*
-		 * When a LotteryThreadState is removed from waitResourceList, we need to update our totalEffectiveTickets
-		 * and then update the LotteryQueues belonging to our resourceHolder
-		 * This essentially replaces the flags system we had in PriorityScheduler
-		 */
-		void removeFromWaiting(LotteryThreadState lotteryThreadState)
-		{
-			if (waitingResources.remove(lotteryThreadState))
-			{
-				updateEffectiveTickets();
-
-				if (resourceHolder != null)
-				{
-					resourceHolder.updateAllEffectiveTickets();
-				}
 			}
 		}
 	}
@@ -235,10 +262,10 @@ public class LotteryScheduler extends Scheduler
 
 		/*
 		 * Updates all the effectiveTickets on resources we own, and resources we're waiting on
-		 * This is mainly called when a change in the lists has occurred, or when a change in
-		 * the tickets throughout the lists has occurred
+		 * It's important to first get the effectiveTickets of resources we own, otherwise we
+		 * don't fully update the effective tickets of resources we're waiting on
 		 */
-		private void updateAllEffectiveTickets()
+		private void updateEffectiveTickets()
 		{
 			effectiveTickets = tickets;
 
@@ -250,7 +277,6 @@ public class LotteryScheduler extends Scheduler
 				{
 					// We update our own effectiveTickets before continuing with updating the
 					// effectiveTickets of the list of resources we're waiting on
-					// THIS IS IMPORTANT.
 					for (LotteryThreadState lotteryThreadState : lotteryQueue.waitingResources)
 					{
 						effectiveTickets += lotteryThreadState.effectiveTickets;
@@ -266,7 +292,7 @@ public class LotteryScheduler extends Scheduler
 
 				if (lotteryQueue.transferTickets && lotteryQueue.resourceHolder != null)
 				{
-					lotteryQueue.resourceHolder.updateAllEffectiveTickets();
+					lotteryQueue.resourceHolder.updateEffectiveTickets();
 				}
 			}
 		}
@@ -280,7 +306,7 @@ public class LotteryScheduler extends Scheduler
 
 			// Since a change in tickets has occurred, we need to update the effectiveTickets on all
 			// the lotteryQueues we own and are waiting on
-			updateAllEffectiveTickets();
+			updateEffectiveTickets();
 		}
 
 		/*
@@ -288,29 +314,21 @@ public class LotteryScheduler extends Scheduler
 		 */
 		void waitForAccess(LotteryQueue lotteryQueue)
 		{
-			release(lotteryQueue);
-
-			// If we're not already in the lotteryQueue's waitingResources
-			if (!lotteryQueue.waitingResources.contains(this))
+			Lib.assertTrue(Machine.interrupt().disabled());
+			
+			// Add the waitQueue into our waitResourceList
+			waitResourceList.add(lotteryQueue);
+			
+			// Remove it from our resourceList because we're no longer in possession of it
+			resourceList.remove(lotteryQueue);
+			
+			if (lotteryQueue.transferTickets && lotteryQueue.resourceHolder != null)
 			{
-				// Add the lotteryQueue to the waitingResourceList
-				waitResourceList.add(lotteryQueue);
-
-				// Add ourselves into the waitingResources of the lotteryQueue
-				lotteryQueue.waitingResources.add(this);
-
-				// If the resourceHolder of lotteryQueue is not null
-				if (lotteryQueue.transferTickets && lotteryQueue.resourceHolder != null)
-				{
-					// Update the effectiveTickets on all the lotteryQueues we own and are waiting on
-					lotteryQueue.resourceHolder.updateAllEffectiveTickets();
-				}
-				// Otherwise, we just update the effectiveTickets belonging to the lotteryQueue
-				// This is only done when the lotteryQueue is new
-				else
-				{
-					lotteryQueue.updateEffectiveTickets();
-				}
+				lotteryQueue.resourceHolder.updateEffectiveTickets();
+			}
+			else
+			{
+				lotteryQueue.updateEffectiveTickets();
 			}
 		}
 
@@ -324,50 +342,13 @@ public class LotteryScheduler extends Scheduler
 		 */
 		void acquire(LotteryQueue lotteryQueue)
 		{
-			// If we're already the resourceHolder, do nothing
-			if (lotteryQueue.resourceHolder != this)
-			{
-				// If the resourceHolder is not null,
-				if (lotteryQueue.resourceHolder != null)
-				{
-					// We release this lotteryQueue from its resourceList
-					lotteryQueue.resourceHolder.release(lotteryQueue);
-				}
-
-				// Remove ourselves from the waitingResources of the lotteryQueue
-				lotteryQueue.removeFromWaiting(this);
-
-				// Set ourselves as the new resourceHolder of the lotteryQueue
-				lotteryQueue.resourceHolder = this;
-
-				// Add this lotteryQueue to our resourceList
-				resourceList.add(lotteryQueue);
-
-				// Remove this lotteryQueue from our waitResourceList
-				waitResourceList.remove(lotteryQueue);
-
-				// Update the effectiveTickets on all the LotteryQueues we own and are waiting on
-				updateAllEffectiveTickets();
-			}
-		}
-
-		/*
-		 * Releases a resourceHolder (ourselves) from a lotteryQueue and updates tickets
-		 */
-		private void release(LotteryQueue lotteryQueue)
-		{
-			// If we're the resourceHolder of the lotteryQueue
-			if (lotteryQueue.resourceHolder == this)
-			{
-				// Remove the lotteryQueue from our resourceList
-				resourceList.remove(lotteryQueue);
-
-				// Set the resourceHolder to be null
-				lotteryQueue.resourceHolder = null;
-
-				// Update the effectiveTickets on all the lotteryQueues we own and are waiting on
-				updateAllEffectiveTickets();
-			}
+			// Add the waitQueue into the resourceList
+			resourceList.add(lotteryQueue);
+			
+			// Remove it from our waiting list of resources we want to own
+			waitResourceList.remove(lotteryQueue);
+			
+			updateEffectiveTickets();
 		}
 	}
 }
