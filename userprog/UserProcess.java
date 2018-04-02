@@ -616,6 +616,7 @@ public class UserProcess {
 	 */
 	private int handleExec(int file, int argc, int argv) {
 		if (!withinPageBounds(file) || !withinPageBounds(this.argv)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -668,6 +669,7 @@ public class UserProcess {
 	 */
 	private int handleJoin(int childProcessId, int status) {
 		if (!withinPageBounds(status)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -709,6 +711,7 @@ public class UserProcess {
 	 */
 	private int handleCreate(int fileNameAddress) {
 		if (!withinPageBounds(fileNameAddress)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -738,6 +741,7 @@ public class UserProcess {
 	 */
 	private int handleOpen(int fileNameAddress){
 		if (!withinPageBounds(fileNameAddress)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -776,6 +780,7 @@ public class UserProcess {
 	 */
 	private int handleRead(int fileDescriptor, int buffer, int size) {
 		if (!withinDescriptorBounds(fileDescriptor)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -813,6 +818,7 @@ public class UserProcess {
 	 */
 	private int handleWrite(int fileDescriptor,int buffer,int size) {
 		if (!withinDescriptorBounds(fileDescriptor)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -850,6 +856,7 @@ public class UserProcess {
 	 */
 	private int handleClose(int fileDescriptor) {
 		if (!withinDescriptorBounds(fileDescriptor)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -878,6 +885,7 @@ public class UserProcess {
 	 */
 	private int handleUnlink(int fileNameAddress) {
 		if (!withinPageBounds(fileNameAddress)) {
+			handleExit(-1);
 			return -1;
 		}
 
@@ -916,6 +924,7 @@ public class UserProcess {
 			default:
 				Lib.debug(dbgProcess, "Unexpected exception: "
 						+ Processor.exceptionNames[cause]);
+
 				Lib.assertNotReached("Unexpected exception");
 		}
 	}
