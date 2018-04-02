@@ -764,26 +764,29 @@ public class UserProcess {
 	}
 
 	public int handleRead(int fd, int buffer, int size) {
-        	if(isInvalidDescriptor(fd)) return -1;
-		if(!withinBounds(buffer)) return -1;
+        	if(isInvalidDescriptor(fd) || !withinBounds(buffer) || size < 0) {
+			UThread.currentThread().finish();
+			return -1;
+		}
 
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
 
-	        int memory_read = openfile.read(temp, 0, size);
-        	int memory_written = writeVirtualMemory(buffer, temp);
-
-		if( memory_read == -1 )
-			return -1;
-		if( memory_written != memory_read )
+		if( openfile.read(temp, 0, size) != size )
 			return -1;
 
-		return memory_read;
+        	int actualSize = writeVirtualMemory(buffer, temp);
+		if( actualSize != size )
+			return -1;
+
+		return actualSize;
 	}
 
 	public int handleWrite(int fd, int buffer, int size) {
-        	if(isInvalidDescriptor(fd)) return -1;
-		if(!withinBounds(buffer)) return -1;
+        	if(isInvalidDescriptor(fd) || !withinBounds(buffer) || size < 0) {
+			UThread.currentThread().finish();
+			return -1;
+		}
 
 		OpenFile openfile = filedescriptors[fd];
 		byte[] temp = new byte[size];
@@ -791,8 +794,11 @@ public class UserProcess {
 		if( readVirtualMemory(buffer, temp) != size )
 			return -1;
 
-		return openfile.write(temp, 0, size);
-		// check actual write size
+		int actualSize = openfile.write(temp, 0, size);
+		if(actualSize != size)
+			return -1;
+
+		return actualSize;
 	}
 
 	public int handleClose(int fd) {
