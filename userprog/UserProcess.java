@@ -25,7 +25,6 @@ public class UserProcess {
 	public UserProcess() {
 		processIdLock.acquire();
 		processId = nextProcessId++;
-		runningProcesses++;
 		processIdLock.release();
 		
 		// stdin/stdout
@@ -427,36 +426,10 @@ public class UserProcess {
 	}
 	
 	/**
-	 * Informs the parent process that the child has exited
-	 *
-	 * @param childProcessId The process id of the child
-	 * @param childStatus The status of the child
-	 */
-	private void setChildExitStatus(int childProcessId, Integer childStatus) {
-		// If the child process doesn't belong to our children, return
-		if (!children.containsKey(childProcessId)) {
-			return;
-		}
-
-		ChildProcess child = children.get(childProcessId);
-
-		// If the child is null, return
-		if (child == null) {
-			return;
-		}
-
-		// Set the child's process to null
-		child.process = null;
-
-		// Set the child's return value to what they pass to us
-		child.returnValue = childStatus;
-	}
-	
-	/**
 	 * Terminate this process due to unhandled exception
 	 */
 	private int terminate() {
-		handleExit(null);
+		handleExit(-1);
 		return -1;
 	}
 
@@ -604,7 +577,7 @@ public class UserProcess {
 	 *               (but is not required to) set status to 0.
 	 * @return 0, but this function never returns
 	 */
-	private int handleExit(Integer status) {
+	private int handleExit(int status) {
 		// Any open file descriptors belonging to the process are closed
 		for (int i = 0; i < FILE_DESCRIPTORS_SIZE; i++) {
 			if (getFileDescriptor(i)) {
@@ -613,19 +586,16 @@ public class UserProcess {
 		}
 
 		// Any children of the process no longer have a parent process
-		for (ChildProcess child : children.values()) {
-			if (child.process != null) {
-				child.process.parent = null;
+		for (UserProcess child : children.values()) {
+			if (child != null) {
+				child.parent = null;
 			}
 		}
 		children = null;
 
 		unloadSections();
 
-		// Attempt to inform our parent that we're exiting
-		if (parent != null) {
-			parent.setChildExitStatus(processId, status);
-		}
+		currentStatus = status;
 
 		joinSem.V();
 
@@ -686,7 +656,7 @@ public class UserProcess {
 		// The new child process
 		UserProcess newChild = newUserProcess();
 		newChild.parent = this;
-		children.put(newChild.processId, new ChildProcess(newChild));
+		children.put(newChild.processId, newChild);
 
 		// Have the child process execute the program
 		newChild.execute(fileName, arguments);
@@ -721,21 +691,21 @@ public class UserProcess {
 
 		// At this point, child itself cannot be null
 		// However, the child's process can be null
-		ChildProcess child = children.get(childProcessId);
+		UserProcess child = children.get(childProcessId);
 
-		if (child.process != null) {
-			child.process.joinSem.P();
+		if (child != null) {
+			child.joinSem.P();
 		}
 
 		// Remove the isRunning process from our list of children
 		children.remove(childProcessId);
 
-		if (child.returnValue == null) {
+		if (child == null) {
 			return 0;
 		}
 
 		// Write the child's return value into the status
-		writeVirtualMemory(status, Lib.bytesFromInt(child.returnValue));
+		writeVirtualMemory(status, Lib.bytesFromInt(child.currentStatus));
 
 		return 1;
 	}
@@ -789,18 +759,6 @@ public class UserProcess {
 
 		return bytesRead;
 	}
-
-	/**
-	 * Write data from buffer into an open file
-	 *
-	 * @param fileDesc
-	 *            File descriptor
-	 * @param bufferPtr
-	 *            Pointer to buffer in virtual memory
-	 * @param size
-	 *            Size of buffer
-	 * @return Number of bytes successfully written, or -1 on error
-	 */
 
 	/**
 	 * Handles the write syscall
@@ -892,19 +850,6 @@ public class UserProcess {
 				terminate();
 				
 				Lib.assertNotReached("Unexpected exception");
-		}
-	}
-	
-	/**
-	 * Internal class to keep track of children processes and their exit value
-	 */
-	private static class ChildProcess {
-		public Integer returnValue;
-		public UserProcess process;
-		
-		ChildProcess(UserProcess child) {
-			process = child;
-			returnValue = null;
 		}
 	}
 	
@@ -1028,7 +973,8 @@ public class UserProcess {
 	// ----- Our Variables -----
 	/** The maximum length of strings passed as arguments to system calls */
 	private static final int MAX_STRING_LENGTH = 256;
-	
+
+	/** The maximum size of file descriptors */
 	private static final int FILE_DESCRIPTORS_SIZE = 16;
 	
 	/** A lock to guarantee unique process ids */
@@ -1039,18 +985,18 @@ public class UserProcess {
 	
 	/** The next process id to be generated. Static to account for global usage */
 	private static int nextProcessId = 0;
-	
+
 	/** The parent process of a UserProcess */
 	private UserProcess parent;
 	/** A processId:UserProcess mapping of children belongs to this UserProcess */
-	private HashMap<Integer, ChildProcess> children = new HashMap<Integer, ChildProcess>();
+	private HashMap<Integer, UserProcess> children = new HashMap<Integer, UserProcess>();
 	
 	/** Process file descriptor table */
 	private OpenFile[] fileDescriptors = new OpenFile[FILE_DESCRIPTORS_SIZE];
 	
 	/** Join condition */
 	private Semaphore joinSem = new Semaphore(0);
-	
-	/** Number of processes */
-	private static int runningProcesses = 0;
+
+	/** The status of the process, assigned when it exits */
+	private int currentStatus = -1;
 }
