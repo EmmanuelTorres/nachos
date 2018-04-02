@@ -615,7 +615,7 @@ public class UserProcess {
 	 * @return the child process's process id, which can be passed to join(). On error, returns -1.
 	 */
 	private int handleExec(int file, int argc, int argv) {
-		if (!withinPageBounds(file) || !withinPageBounds(this.argv)) {
+		if (!withinPageBounds(file) || !withinPageBounds(argv)) {
 			handleExit(-1);
 			return -1;
 		}
