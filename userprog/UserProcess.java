@@ -88,6 +88,16 @@ public class UserProcess {
 	}
 
 	/**
+	 * A helper function to determine whether a fileDescriptor index is within
+	 * the bounds of our fileDescriptors
+	 * @param fileDescriptor The descriptor we want to check
+	 * @return true if we're within the bounds of fileDescriptors
+	 */
+	private boolean withinDescriptorBounds(int fileDescriptor) {
+		return fileDescriptor >= 0 && fileDescriptor < FILE_DESCRIPTORS_SIZE;
+	}
+
+	/**
 	 * A helper function to determine whether a fileDescriptor is within
 	 * the bounds of our fileDescriptors array
 	 * @param fileDescriptorIndex The file descriptor index we want to check
@@ -545,7 +555,7 @@ public class UserProcess {
 	}
 
 	/**
-	 * Terminate the current process immediately. Any open file descriptors
+	 * Terminate the current process immediately. Any open file fileDescriptors
 	 * belonging to the process are closed. Any children of the process no longer
 	 * have a parent process.
 	 *
@@ -555,7 +565,7 @@ public class UserProcess {
 	 * @return 0, but this function never returns
 	 */
 	private int handleExit(int status) {
-		// Any open file descriptors belonging to the process are closed
+		// Any open file fileDescriptors belonging to the process are closed
 		for (int i = 0; i < FILE_DESCRIPTORS_SIZE; i++) {
 			if (getFileDescriptor(i)) {
 				handleClose(i);
@@ -694,126 +704,159 @@ public class UserProcess {
 	 * Note that creat() can only be used to create files on disk; creat() will
 	 * never return a file descriptor referring to a stream.
 	 *
-	 * @param fileNamePtr The address of the file name we're supposed to create
-	 * @return -1 on error, 0 on success
+	 * @param fileNameAddress The address of the file name we're supposed to create
+	 * @return the new file descriptor, or -1 if an error occurred.
 	 */
-	private int handleCreate(int fileNamePtr) {
-		int fileDescriptor = getAvailableFileDescriptor();
-
-		if (fileDescriptor == -1) {
+	private int handleCreate(int fileNameAddress) {
+		if (!withinPageBounds(fileNameAddress)) {
 			return -1;
 		}
 
-		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
+		String fileName = readVirtualMemoryString(fileNameAddress,MAX_STRING_LENGTH);
 
-		if (fileName == null) {
-			return -1;
+		int newFileDescriptor = getAvailableFileDescriptor();
+
+		if (newFileDescriptor == -1) {
+			return newFileDescriptor;
 		}
 
-		OpenFile file = Machine.stubFileSystem().open(fileName, true);
+		OpenFile openFile = ThreadedKernel.fileSystem.open(fileName, true);
 
-		fileDescriptors[fileDescriptor] = file;
+		fileDescriptors[newFileDescriptor] = openFile;
 
-		return fileDescriptor;
+		return newFileDescriptor;
 	}
 
 	/**
-	 * Handles open(char* fileName) system call
-	 * @param fileNamePtr The address of the file we're supposed to open
-	 * @return -1 on error, 0 on success
-	 */
-	private int handleOpen(int fileNamePtr) {
-		int fileDescriptor = getAvailableFileDescriptor();
-
-		if (fileDescriptor == -1) {
-			return -1;
-		}
-
-		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
-
-		if (fileName == null) {
-			return -1;
-		}
-
-		OpenFile file = Machine.stubFileSystem().open(fileName, false);
-
-		fileDescriptors[fileDescriptor] = file;
-
-		return fileDescriptor;
-	}
-
-	/**
-	 * Read data from open file into buffer
+	 * Attempt to open the named file and return a file descriptor.
 	 *
-	 * @param fileDescriptor File descriptor
-	 * @param bufferPtr Pointer to buffer in virtual memory
+	 * Note that open() can only be used to open files on disk; open() will never
+	 * return a file descriptor referring to a stream.
+	 *
+	 * @param fileNameAddress The address of the file we're supposed to open
+	 * @return the new file descriptor, or -1 if an error occurred.
+	 */
+	private int handleOpen(int fileNameAddress){
+		if (!withinPageBounds(fileNameAddress)) {
+			return -1;
+		}
+
+		String fileName = readVirtualMemoryString(fileNameAddress,MAX_STRING_LENGTH);
+
+		int newFileDescriptor = getAvailableFileDescriptor();
+
+		if (newFileDescriptor == -1) {
+			return newFileDescriptor;
+		}
+
+		OpenFile openFile = ThreadedKernel.fileSystem.open(fileName, false);
+
+		fileDescriptors[newFileDescriptor] = openFile;
+
+		return newFileDescriptor;
+	}
+
+	/**
+	 * Attempt to read up to count bytes into buffer from the file or stream
+	 * referred to by fileDescriptor.
+	 *
+	 * It is not necessarily an error if this number is smaller than the number of
+	 * bytes requested. If the file descriptor refers to a file on disk, this
+	 * indicates that the end of the file has been reached. If the file descriptor
+	 * refers to a stream, this indicates that the fewer bytes are actually
+	 * available right now than were requested, but more bytes may become available
+	 * in the future. Note that read() never waits for a stream to have more data;
+	 * it always returns as much as possible immediately.
+	 *
+	 * @param fileDescriptor File fileDescriptor
+	 * @param buffer Pointer to buffer in virtual memory
 	 * @param size How much to read
-	 * @return Number of bytes read, or -1 on error
+	 * @return On success, the number of bytes read is returned. If the file descriptor
+	 *          refers to a file on disk, the file position is advanced by this number.
 	 */
-	private int handleRead(int fileDescriptor, int bufferPtr, int size) {
-		if (!withinPageBounds(bufferPtr) || !getFileDescriptor(fileDescriptor)) {
+	private int handleRead(int fileDescriptor, int buffer, int size) {
+		if (!withinDescriptorBounds(fileDescriptor)) {
+			return -1;
+		}
+
+		// If the file descriptor is null, we return -1
+		if (fileDescriptors[fileDescriptor] == null) {
 			return -1;
 		}
 
 		OpenFile openFile = fileDescriptors[fileDescriptor];
-
-		if (openFile == null) {
-			return -1;
-		}
-
 		byte[] temp = new byte[size];
 
-		int length = openFile.read(temp, 0, size);
+		// Get the number of bytes read
+		int bytesRead = openFile.read(temp, 0, size);
 
-		if (length == -1) {
-			return -1;
+		// If this value is -1, return -1
+		if (bytesRead == -1) {
+			return bytesRead;
 		}
 
-		return writeVirtualMemory(bufferPtr, temp, 0, length);
+		return writeVirtualMemory(buffer, temp, 0, bytesRead);
 	}
 
 	/**
-	 * Handles the write syscall
+	 * Attempt to write up to count bytes from buffer to the file or stream
+	 * referred to by fileDescriptor. write() can return before the bytes are
+	 * actually flushed to the file or stream. A write to a stream can block,
+	 * however, if kernel queues are temporarily full.
+	 *
 	 * @param fileDescriptor The index of the fileDescriptor we want to write to
-	 * @param bufferPtr The address of where the buffer starts
+	 * @param buffer The address of where the buffer starts
 	 * @param size The size of the buffer in bytes
-	 * @return -1 on error, the amount of bytes written on success
+	 * @return On error, -1 is returned, and the new file position is undefined. This can
+	 *          happen if fileDescriptor is invalid, if part of the buffer is invalid, or
+	 *          if a network stream has already been terminated by the remote host.
 	 */
-	private int handleWrite(int fileDescriptor, int bufferPtr, int size) {
-		if (!withinPageBounds(bufferPtr) || !getFileDescriptor(fileDescriptor)) {
+	private int handleWrite(int fileDescriptor,int buffer,int size) {
+		if (!withinDescriptorBounds(fileDescriptor)) {
+			return -1;
+		}
+
+		// If the file fileDescriptor is null, we return -1
+		if (fileDescriptors[fileDescriptor] == null) {
 			return -1;
 		}
 
 		OpenFile openFile = fileDescriptors[fileDescriptor];
-
-		if (openFile == null) {
-			return -1;
-		}
-
 		byte[] temp = new byte[size];
 
-		int length = readVirtualMemory(bufferPtr, temp, 0, size);
+		// Get the number of bytes read
+		int bytesRead = readVirtualMemory(buffer, temp, 0, size);
 
-		int count = openFile.write(temp, 0, length);
-
-		if (count == -1) {
-			return -1;
-		}
-
-		return count;
+		return openFile.write(temp, 0, bytesRead);
 	}
 
 	/**
-	 * Handles the close system call
+	 * Close a file descriptor, so that it no longer refers to any file or stream
+	 * and may be reused.
+	 *
+	 * If the file descriptor refers to a file, all data written to it by write()
+	 * will be flushed to disk before close() returns.
+	 * If the file descriptor refers to a stream, all data written to it by write()
+	 * will eventually be flushed (unless the stream is terminated remotely), but
+	 * not necessarily before close() returns.
+	 *
+	 * The resources associated with the file descriptor are released. If the
+	 * descriptor is the last reference to a disk file which has been removed using
+	 * unlink, the file is deleted (this detail is handled by the file system
+	 * implementation).
+	 *
 	 * @param fileDescriptor The index of fileDescriptors we want to close
-	 * @return -1 on error, 0 on success
+	 * @return 0 on success, or -1 if an error occurred.
 	 */
 	private int handleClose(int fileDescriptor) {
-		if (!getFileDescriptor(fileDescriptor)) {
+		if (!withinDescriptorBounds(fileDescriptor)) {
 			return -1;
 		}
 
-		// If nobody is using it, we close it and set it to null
+		if (fileDescriptors[fileDescriptor] == null) {
+			return -1;
+		}
+
 		fileDescriptors[fileDescriptor].close();
 		fileDescriptors[fileDescriptor] = null;
 
@@ -821,42 +864,28 @@ public class UserProcess {
 	}
 
 	/**
-	 * Handles the unlink system call
-	 * @param fileNamePtr The address of the file we want to unlink
-	 * @return 0 on success, -1 on error
+	 * Delete a file from the file system. If no processes have the file open, the
+	 * file is deleted immediately and the space it was using is made available for
+	 * reuse.
+	 *
+	 * If any processes still have the file open, the file will remain in existence
+	 * until the last file descriptor referring to it is closed. However, creat()
+	 * and open() will not be able to return new file descriptors for the file
+	 * until it is deleted.
+	 *
+	 * @param fileNameAddress The address of the file we want to unlink
+	 * @return 0 on success, or -1 if an error occurred.
 	 */
-	private int handleUnlink(int fileNamePtr) {
-		if (!withinPageBounds(fileNamePtr)) {
+	private int handleUnlink(int fileNameAddress) {
+		if (!withinPageBounds(fileNameAddress)) {
 			return -1;
 		}
 
-		int index = -1;
+		String fileName = readVirtualMemoryString(fileNameAddress,MAX_STRING_LENGTH);
 
-		// Set the fileName
-		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
-
-		if (fileName == null) {
+		// If the file system was not able to remove the file, return -1
+		if (!ThreadedKernel.fileSystem.remove(fileName)) {
 			return -1;
-		}
-
-		// Iterate through fileDescriptors to find the one that matches our fileName
-		for (int i = 0; i < FILE_DESCRIPTORS_SIZE; i++) {
-			if (getFileDescriptor(i)) {
-				if (fileDescriptors[i].getName().equals(fileName))
-				{
-					index = i;
-
-					break;
-				}
-			}
-		}
-
-		if (index == -1) {
-			return -1;
-		}
-
-		if (ThreadedKernel.fileSystem.remove(fileName)) {
-			return 1;
 		}
 
 		return 0;
@@ -912,7 +941,7 @@ public class UserProcess {
 	/** The maximum length of strings passed as arguments to system calls */
 	private static final int MAX_STRING_LENGTH = 256;
 
-	/** The maximum size of file descriptors */
+	/** The maximum size of file fileDescriptors */
 	private static final int FILE_DESCRIPTORS_SIZE = 16;
 	
 	/** A lock to guarantee unique process ids */
