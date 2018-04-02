@@ -27,11 +27,8 @@ public class UserProcess {
 		processId = nextProcessId++;
 		processIdLock.release();
 		
-		// stdin/stdout
 		fileDescriptors[0] = UserKernel.console.openForReading();
-		FileRef.referenceFile(fileDescriptors[0].getName());
 		fileDescriptors[1] = UserKernel.console.openForWriting();
-		FileRef.referenceFile(fileDescriptors[1].getName());
 	}
 	
 	/**
@@ -160,16 +157,28 @@ public class UserProcess {
 	 * Transfer data from this process's virtual memory to all of the specified
 	 * array. Same as <tt>readVirtualMemory(vaddr, data, 0, data.length)</tt>.
 	 *
-	 * @param vaddr
-	 *            the first byte of virtual memory to read.
-	 * @param data
-	 *            the array where the data will be stored.
+	 * @param vaddr the first byte of virtual memory to read.
+	 * @param data the array where the data will be stored.
 	 * @return the number of bytes successfully transferred.
 	 */
 	public int readVirtualMemory(int vaddr, byte[] data) {
 		return readVirtualMemory(vaddr, data, 0, data.length);
 	}
 
+	/**
+	 * Transfer data from this process's virtual memory to the specified array.
+	 * This method handles address translation details. This method must
+	 * <i>not</i> destroy the current process if an error occurs, but instead
+	 * should return the number of bytes successfully copied (or zero if no
+	 * data could be copied).
+	 *
+	 * @param	vaddr	the first byte of virtual memory to read.
+	 * @param	data	the array where the data will be stored.
+	 * @param	offset	the first byte to write in the array.
+	 * @param	length	the number of bytes to transfer from virtual memory to
+	 *			the array.
+	 * @return	the number of bytes successfully transferred.
+	 */
 	public int readVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
@@ -215,6 +224,20 @@ public class UserProcess {
 		return writeVirtualMemory(vaddr, data, 0, data.length);
 	}
 
+	/**
+	 * Transfer data from the specified array to this process's virtual memory.
+	 * This method handles address translation details. This method must
+	 * <i>not</i> destroy the current process if an error occurs, but instead
+	 * should return the number of bytes successfully copied (or zero if no
+	 * data could be copied).
+	 *
+	 * @param	vaddr	the first byte of virtual memory to write.
+	 * @param	data	the array containing the data to transfer.
+	 * @param	offset	the first byte to transfer from the array.
+	 * @param	length	the number of bytes to transfer from the array to
+	 *			virtual memory.
+	 * @return	the number of bytes successfully transferred.
+	 */
 	public int writeVirtualMemory(int vaddr, byte[] data, int offset, int length) {
 		Lib.assertTrue(offset >= 0 && length >= 0 && offset+length <= data.length);
 
@@ -392,52 +415,6 @@ public class UserProcess {
 		// initialize the first two argument registers to argc and argv
 		processor.writeRegister(Processor.regA0, argc);
 		processor.writeRegister(Processor.regA1, argv);
-	}
-	
-	private int openFile(int fileNamePtr, boolean create) {
-		if (!withinPageBounds(fileNamePtr))
-			return terminate();
-		
-		// Try to get an entry in the file table
-		int fileDesc = getAvailableFileDescriptor();
-		if (fileDesc == -1)
-			return -1;
-		
-		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
-		
-		// Attempt to add a new reference to this file
-		if (!FileRef.referenceFile(fileName))
-			return -1; // Cannot make new references to files that are marked
-		// for deletion
-		
-		// Attempt to actually open the file
-		OpenFile file = UserKernel.fileSystem.open(fileName, create);
-		if (file == null) {
-			// Remove the previously created reference since we failed to open
-			// the file
-			FileRef.unreferenceFile(fileName);
-			return -1;
-		}
-		
-		// Store the file in our file table
-		fileDescriptors[fileDesc] = file;
-		
-		return fileDesc;
-	}
-	
-	/**
-	 * Terminate this process due to unhandled exception
-	 */
-	private int terminate() {
-		handleExit(-1);
-		return -1;
-	}
-
-	/**
-	 * Cause caller to sleep until this process has isRunning
-	 */
-	//
-	private void waitForExit() {
 	}
 	
 	private static final int
@@ -629,7 +606,7 @@ public class UserProcess {
 	 */
 	private int handleExec(int file, int argc, int argv) {
 		if (!withinPageBounds(file) || !withinPageBounds(this.argv)) {
-			return terminate();
+			return -1;
 		}
 
 		// A null-terminated string that specifies the name of the file containing the executable
@@ -681,7 +658,7 @@ public class UserProcess {
 	 */
 	private int handleJoin(int childProcessId, int status) {
 		if (!withinPageBounds(status)) {
-			terminate();
+			return -1;
 		}
 
 		// If the process isn't a child, return -1
@@ -711,12 +688,33 @@ public class UserProcess {
 	}
 
 	/**
-	 * Handles creat(char* fileName) system call
-	 * @param fileNamePtr The address of the file we're supposed to create
+	 * Attempt to open the named disk file, creating it if it does not exist,
+	 * and return a file descriptor that can be used to access the file.
+	 *
+	 * Note that creat() can only be used to create files on disk; creat() will
+	 * never return a file descriptor referring to a stream.
+	 *
+	 * @param fileNamePtr The address of the file name we're supposed to create
 	 * @return -1 on error, 0 on success
 	 */
 	private int handleCreate(int fileNamePtr) {
-		return openFile(fileNamePtr, true);
+		int fileDescriptor = getAvailableFileDescriptor();
+
+		if (fileDescriptor == -1) {
+			return -1;
+		}
+
+		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
+
+		if (fileName == null) {
+			return -1;
+		}
+
+		OpenFile file = Machine.stubFileSystem().open(fileName, true);
+
+		fileDescriptors[fileDescriptor] = file;
+
+		return fileDescriptor;
 	}
 
 	/**
@@ -725,39 +723,53 @@ public class UserProcess {
 	 * @return -1 on error, 0 on success
 	 */
 	private int handleOpen(int fileNamePtr) {
-		return openFile(fileNamePtr, false);
+		int fileDescriptor = getAvailableFileDescriptor();
+
+		if (fileDescriptor == -1) {
+			return -1;
+		}
+
+		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
+
+		if (fileName == null) {
+			return -1;
+		}
+
+		OpenFile file = Machine.stubFileSystem().open(fileName, false);
+
+		fileDescriptors[fileDescriptor] = file;
+
+		return fileDescriptor;
 	}
 
 	/**
 	 * Read data from open file into buffer
 	 *
-	 * @param fileDesc
-	 *            File descriptor
-	 * @param bufferPtr
-	 *            Pointer to buffer in virtual memory
-	 * @param size
-	 *            How much to read
+	 * @param fileDescriptor File descriptor
+	 * @param bufferPtr Pointer to buffer in virtual memory
+	 * @param size How much to read
 	 * @return Number of bytes read, or -1 on error
 	 */
-	private int handleRead(int fileDesc, int bufferPtr, int size) {
-		if (!withinPageBounds(bufferPtr))
-			return terminate();
-		if (!getFileDescriptor(fileDesc))
+	private int handleRead(int fileDescriptor, int bufferPtr, int size) {
+		if (!withinPageBounds(bufferPtr) || !getFileDescriptor(fileDescriptor)) {
 			return -1;
+		}
 
-		byte buffer[] = new byte[size];
-		int bytesRead = fileDescriptors[fileDesc].read(buffer, 0, size);
+		OpenFile openFile = fileDescriptors[fileDescriptor];
 
-		// Failed to read
-		if (bytesRead == -1)
+		if (openFile == null) {
 			return -1;
+		}
 
-		int bytesWritten = writeVirtualMemory(bufferPtr, buffer, 0, bytesRead);
-		// We weren't able to write the whole buffer to memory!
-		if (bytesWritten != bytesRead)
+		byte[] temp = new byte[size];
+
+		int length = openFile.read(temp, 0, size);
+
+		if (length == -1) {
 			return -1;
+		}
 
-		return bytesRead;
+		return writeVirtualMemory(bufferPtr, temp, 0, length);
 	}
 
 	/**
@@ -768,24 +780,28 @@ public class UserProcess {
 	 * @return -1 on error, the amount of bytes written on success
 	 */
 	private int handleWrite(int fileDescriptor, int bufferPtr, int size) {
-		if (!withinPageBounds(bufferPtr))
-			return terminate();
-		if (!getFileDescriptor(fileDescriptor))
+		if (!withinPageBounds(bufferPtr) || !getFileDescriptor(fileDescriptor)) {
 			return -1;
+		}
 
-		byte buffer[] = new byte[size];
-		int bytesRead = readVirtualMemory(bufferPtr, buffer);
+		OpenFile openFile = fileDescriptors[fileDescriptor];
 
-		return fileDescriptors[fileDescriptor].write(buffer, 0, bytesRead);
+		if (openFile == null) {
+			return -1;
+		}
+
+		byte[] temp = new byte[size];
+
+		int length = readVirtualMemory(bufferPtr, temp, 0, size);
+
+		int count = openFile.write(temp, 0, length);
+
+		if (count == -1) {
+			return -1;
+		}
+
+		return count;
 	}
-
-	/**
-	 * Close a file and free its place in the file table
-	 *
-	 * @param fileDescriptor
-	 *            Index of file in file table
-	 * @return 0 on success, -1 on error
-	 */
 
 	/**
 	 * Handles the close system call
@@ -793,17 +809,15 @@ public class UserProcess {
 	 * @return -1 on error, 0 on success
 	 */
 	private int handleClose(int fileDescriptor) {
-		if (!getFileDescriptor(fileDescriptor))
+		if (!getFileDescriptor(fileDescriptor)) {
 			return -1;
+		}
 
-		String fileName = fileDescriptors[fileDescriptor].getName();
-
-		// Remove the file from our file table
+		// If nobody is using it, we close it and set it to null
 		fileDescriptors[fileDescriptor].close();
 		fileDescriptors[fileDescriptor] = null;
 
-		// Unreference the file and delete if necessary
-		return FileRef.unreferenceFile(fileName);
+		return 0;
 	}
 
 	/**
@@ -812,12 +826,40 @@ public class UserProcess {
 	 * @return 0 on success, -1 on error
 	 */
 	private int handleUnlink(int fileNamePtr) {
-		if (!withinPageBounds(fileNamePtr))
-			return terminate();
+		if (!withinPageBounds(fileNamePtr)) {
+			return -1;
+		}
 
-		String fileName = readVirtualMemoryString(fileNamePtr,
-				MAX_STRING_LENGTH);
-		return FileRef.deleteFile(fileName);
+		int index = -1;
+
+		// Set the fileName
+		String fileName = readVirtualMemoryString(fileNamePtr, MAX_STRING_LENGTH);
+
+		if (fileName == null) {
+			return -1;
+		}
+
+		// Iterate through fileDescriptors to find the one that matches our fileName
+		for (int i = 0; i < FILE_DESCRIPTORS_SIZE; i++) {
+			if (getFileDescriptor(i)) {
+				if (fileDescriptors[i].getName().equals(fileName))
+				{
+					index = i;
+
+					break;
+				}
+			}
+		}
+
+		if (index == -1) {
+			return -1;
+		}
+
+		if (ThreadedKernel.fileSystem.remove(fileName)) {
+			return 1;
+		}
+
+		return 0;
 	}
 	
 	/**
@@ -845,112 +887,8 @@ public class UserProcess {
 			default:
 				Lib.debug(dbgProcess, "Unexpected exception: "
 						+ Processor.exceptionNames[cause]);
-				
-				// Process did something naughty
-				terminate();
-				
 				Lib.assertNotReached("Unexpected exception");
 		}
-	}
-	
-	/**
-	 * Internal class to keep track of how many processes reference a given file
-	 */
-	protected static class FileRef {
-		int references;
-		boolean delete;
-		
-		/**
-		 * Increment the number of active references there are to a file
-		 *
-		 * @return False if the file has been marked for deletion
-		 */
-		public static boolean referenceFile(String fileName) {
-			FileRef ref = updateFileReference(fileName);
-			boolean canReference = !ref.delete;
-			if (canReference)
-				ref.references++;
-			finishUpdateFileReference();
-			return canReference;
-		}
-		
-		/**
-		 * Decrement the number of active references there are to a file Delete
-		 * the file if necessary
-		 *
-		 * @return 0 on success, -1 on failure
-		 */
-		public static int unreferenceFile(String fileName) {
-			FileRef ref = updateFileReference(fileName);
-			ref.references--;
-			Lib.assertTrue(ref.references >= 0);
-			int ret = removeIfNecessary(fileName, ref);
-			finishUpdateFileReference();
-			return ret;
-		}
-		
-		/**
-		 * Mark a file as pending deletion, and delete the file if no active
-		 * references
-		 *
-		 * @return 0 on success, -1 on failure
-		 */
-		public static int deleteFile(String fileName) {
-			FileRef ref = updateFileReference(fileName);
-			ref.delete = true;
-			int ret = removeIfNecessary(fileName, ref);
-			finishUpdateFileReference();
-			return ret;
-		}
-		
-		/**
-		 * Remove a file if marked for deletion and has no active references
-		 * Remove the file from the reference table if no active references THIS
-		 * FUNCTION MUST BE CALLED WITHIN AN UPDATEFILEREFERENCE LOCK!
-		 *
-		 * @return 0 on success, -1 on failure to remove file
-		 */
-		private static int removeIfNecessary(String fileName, FileRef ref) {
-			if (ref.references <= 0) {
-				globalFileReferences.remove(fileName);
-				if (ref.delete == true) {
-					if (!UserKernel.fileSystem.remove(fileName))
-						return -1;
-				}
-			}
-			return 0;
-		}
-		
-		/**
-		 * Lock the global file reference table and return a file reference for
-		 * modification. If the reference doesn't already exist, create it.
-		 * finishUpdateFileReference() must be called to unlock the table again!
-		 *
-		 * @param fileName
-		 *            File we with to reference
-		 * @return FileRef object
-		 */
-		private static FileRef updateFileReference(String fileName) {
-			globalFileReferencesLock.acquire();
-			FileRef ref = globalFileReferences.get(fileName);
-			if (ref == null) {
-				ref = new FileRef();
-				globalFileReferences.put(fileName, ref);
-			}
-			
-			return ref;
-		}
-		
-		/**
-		 * Release the lock on the global file reference table
-		 */
-		private static void finishUpdateFileReference() {
-			globalFileReferencesLock.release();
-		}
-		
-		/** Global file reference tracker & lock */
-		private static HashMap<String, FileRef> globalFileReferences = new HashMap<String, FileRef>();
-		private static Lock globalFileReferencesLock = new Lock();
 	}
 	
 	/** The program being run by this process. */
