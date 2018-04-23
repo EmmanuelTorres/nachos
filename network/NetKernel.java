@@ -66,6 +66,7 @@ public class NetKernel extends UserKernel {
 	try {
 	    ping = new MailMessage(dstLink, 1,
 				   Machine.networkLink().getLinkAddress(), 0,
+				   false, false, false, false, 0,
 				   new byte[0]);
 	}
 	catch (MalformedPacketException e) {
@@ -91,6 +92,7 @@ public class NetKernel extends UserKernel {
 	    try {
 		ack = new MailMessage(ping.packet.srcLink, ping.srcPort,
 				      ping.packet.dstLink, ping.dstPort,
+				      false, false, false, false, 0,
 				      ping.contents);
 	    }
 	    catch (MalformedPacketException e) {
