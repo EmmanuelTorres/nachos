@@ -49,7 +49,7 @@ public class MailMessage {
 	packetContents[0] = (byte) dstPort;
 	packetContents[1] = (byte) srcPort;
 	packetContents[2] = 0;
-	byte[] transportFlagsByte = transportFlags.toByteArray();
+	byte[] transportFlagsByte = toByteArray(transportFlags);
 	packetContents[3] = transportFlagsByte[0];
 	byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
 	for(int i = 0; i < 4; i++) {
@@ -84,6 +84,16 @@ public class MailMessage {
 	System.arraycopy(packet.contents, headerLength, contents, 0,
 			 contents.length);
     }
+
+	public static byte[] toByteArray(BitSet bits) {
+	    byte[] bytes = new byte[(bits.length() + 7) / 8];
+	    for (int i=0; i<bits.length(); i++) {
+		if (bits.get(i)) {
+		    bytes[bytes.length-i/8-1] |= 1<<(i%8);
+		}
+	    }
+	    return bytes;
+	}
 
     /**
      * Return a string representation of the message headers.
