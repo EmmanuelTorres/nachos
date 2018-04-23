@@ -79,6 +79,15 @@ public class MailMessage {
 
 	dstPort = packet.contents[0];
 	srcPort = packet.contents[1];
+	byte[] transportFlagsByte = {packet.contents[3]};
+	for(int i = 0; i < 4; i++) {
+	    transportFlags.set(i,((transportFlagsByte[0] & (byte)(0x1 << i)) >> i) == 0);
+	}
+	byte[] seqnoBytes = new byte[4];
+	for(int i = 0; i < 4; i++) {
+	    seqnoBytes[i] = packet.contents[4+i];
+	}
+	seqno = ByteBuffer.wrap(seqnoBytes).getInt();
 
 	contents = new byte[packet.contents.length - headerLength];
 	System.arraycopy(packet.contents, headerLength, contents, 0,
