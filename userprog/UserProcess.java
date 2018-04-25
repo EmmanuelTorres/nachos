@@ -112,7 +112,7 @@ public class UserProcess {
 	 * A helper function to get the next available file descriptor
 	 * @return index of an available file descriptor on success, -1 on error
 	 */
-	public int getAvailableFileDescriptor() {
+	private int getAvailableFileDescriptor() {
 		for(int i = 0; i < FILE_DESCRIPTORS_SIZE; i++) {
 			if(fileDescriptors[i] == null)
 				return i;
@@ -969,7 +969,7 @@ public class UserProcess {
 	private HashMap<Integer, UserProcess> children = new HashMap<Integer, UserProcess>();
 	
 	/** Process file descriptor table */
-	public OpenFile[] fileDescriptors = new OpenFile[FILE_DESCRIPTORS_SIZE];
+	private OpenFile[] fileDescriptors = new OpenFile[FILE_DESCRIPTORS_SIZE];
 	
 	/** Join condition */
 	private Semaphore joinSem = new Semaphore(0);

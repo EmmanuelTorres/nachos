@@ -8,16 +8,58 @@ import nachos.vm.*;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
+import java.util.HashMap;
 
 /**
  * A <tt>VMProcess</tt> that supports networking syscalls.
  */
 public class NetProcess extends UserProcess {
+	private static final int CHAT_PORT = 15;
+	private static final int SOCKET_SIZE = 16;
+
+	private Socket[] socketDescriptor = new Socket[SOCKET_SIZE];
+
+	private PostOffice postOffice;
+
     /**
      * Allocate a new process.
      */
     public NetProcess() {
-	super();
+		super();
+	    postOffice = new PostOffice();
+    }
+
+	/**
+	 * Checks to see if a port is within the valid bounds according
+	 * to the NachOS design constraints
+	 * @param port The port we're checking against
+	 * @return true if the port is within 0 and 126
+	 */
+	private boolean withinPortBounds(int port) {
+    	return port >= 0 && port <= 126;
+    }
+
+	/**
+	 * Checks to see if the socket is available
+	 * @param socket The socket we want to check and see if it is open
+	 * @return true if the socket is open
+	 */
+	private boolean withinSocketBounds(int socket) {
+    	return socket > 0 && socket < SOCKET_SIZE;
+    }
+
+	/**
+	 * A helper function to get the next available socket descriptor
+	 * @return The index for an available socket descriptor on success, -1 on error
+	 */
+	private int getAvailableSocketDescriptor() {
+    	for (int i = 0; i < SOCKET_SIZE; i++) {
+	    	if (socketDescriptor[i] == null) {
+		    	return i;
+		    }
+	    }
+
+	    return -1;
     }
 
     private static final int
@@ -102,54 +144,48 @@ public class NetProcess extends UserProcess {
 	    // One endpoint calls the connect system call, invoking this function
 	    // The endpoint that called connect is the active endpoint
 	    // We are inside the passive endpoint
-	    //
 
 	    // The first thing we do is check if there is availability for a new NetworkLink
 	    // object that will be put on a fileDescriptor
-	    int openFileDescriptor = getAvailableFileDescriptor();
+	    int openSocketDescriptor = getAvailableSocketDescriptor();
 
-	    // If there isn't, we return -1
-	    if (openFileDescriptor == -1)
-	    {
-	    	return openFileDescriptor;
+	    // If there isn't any open file descriptors or the port is not within bounds, we return -1
+	    if (openSocketDescriptor == -1 || !withinPortBounds(port)) {
+	    	return openSocketDescriptor;
 	    }
 
+	    // With the SYN packet, we don't pack any contents into the message
+	    // It's a blank packet that is a type of SYN
 	    byte[] contents = new byte[0];
 
-	    Packet synchronizationPacket = null;
-	    MailMessage mailMessage = null;
+	    // Create a message to send to the client
+	    // We have modified this constructor
+	    MailMessage mailMessage;
 
 	    try
 	    {
-	    	// Packet(dstLink, srcLink, contents)
-		    // Synchronization (SYN) packet to be sent to the client
-		    synchronizationPacket = new Packet(host, Machine.networkLink().getLinkAddress(), contents);
-		    // MailMessage that wraps the SYN packet
-		    mailMessage = new MailMessage(synchronizationPacket);
+		    // int dstLink, int dstPort, int srcLink, int srcPort,
+		    // boolean fin, boolean stp, boolean ack, boolean syn, int seqno,
+		    // byte[] contents
+		    mailMessage = new MailMessage(host, port, Machine.networkLink().getLinkAddress(), CHAT_PORT,
+				    false, false, false, true, 0, contents);
 	    }
 	    catch (MalformedPacketException e)
 	    {
 		    e.printStackTrace();
-	    }
 
-	    if (synchronizationPacket == null || mailMessage == null)
-	    {
 		    return -1;
 	    }
 
-	    // Assign the openFileDescriptor a NetworkLink object that will listen for
+	    // Assign the openSocketDescriptor a NetworkLink object that will listen for
 	    // calls from this specific program that handled the connection
-	    // NetworkLink takes a Privilege object as a parameter -- assigned by Nachos?
-	    fileDescriptors[openFileDescriptor] = new NetworkLink(new Privilege());
-
-	    // Initialize a PostOffice
-	    PostOffice postOffice = new PostOffice();
+	    socketDescriptor[openSocketDescriptor] = new Socket();
 
 	    // Send the SYN packet being wrapped by the MailMessage
 	    postOffice.send(mailMessage);
 
 	    // Return a new file descriptor referring to the connection
-	    return getAvailableFileDescriptor();
+	    return openSocketDescriptor;
     }
 
 	/**
@@ -173,6 +209,6 @@ public class NetProcess extends UserProcess {
 	private int handleAccept(int port) {
 
 		// Returns a new file descriptor referring to the connection, or -1 if an error occurred
-		return getAvailableFileDescriptor();
+		return getAvailableSocketDescriptor();
 	}
 }
