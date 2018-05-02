@@ -110,14 +110,20 @@ public class NetProcess extends UserProcess {
 	 * @param socket
 	 * @param buffer
 	 * @param port
-	 * @return The amount of bytes read, 0 on no bytes avialable, or -1 on error
+	 * @return The amount of bytes read, 0 on no bytes available, or -1 on error
 	 */
 	private int handleRead(int socket, int buffer, int port) {
     	return -1;
     }
 
-
-    private int handleClose(int socket) {
+	/**
+	 * Handles the tear-down between the two connections. This will first receive
+	 * the FIN acknowledgement from the server and send any data in the buffer to
+	 * the client and then send the client our FIN acknowledgement
+	 * @param socket
+	 * @return
+	 */
+	private int handleClose(int socket) {
 		return -1;
     }
 
@@ -125,28 +131,11 @@ public class NetProcess extends UserProcess {
 	 * Attempt to initiate a new connection to the specified port on the specified
 	 * remote host, and return a new file descriptor referring to the connection.
 	 * connect() does not give up if the remote host does not respond immediately.
-	 *
-	 * Returns the new file descriptor, or -1 if an error occurred.
+	 * @return the new file descriptor, or -1 if an error occurred.
 	 */
     private int handleConnect(int host, int port) {
-	    /*
-	     * One endpoint(client) calls the connect() system call. This endpoint is referred to as the active
-	     * endpoint. A process at the other endpoint(server) must later call the accept() system call.
-	     * As these system calls are invoked, the underlying protocol initiates a 2-way handshake.
-	     * When a user process invokes the connect() system call, the active endpoint sends a
-	     * synchronize packet (SYN). This causes a pending connection to be created. The state for
-	     * this pending connection must be stored at the receiver (server?) until a user process
-	     * at the passive endpoint invokes the accept() system call. When accept() is invoked, the
-	     * passive end sends a SYN acknowledgement packet (SYN/ACK) back to the active endpoint
-	     * and the connection is established.
-	     */
-
-	    // One endpoint calls the connect system call, invoking this function
-	    // The endpoint that called connect is the active endpoint
-	    // We are inside the passive endpoint
-
-	    // The first thing we do is check if there is availability for a new NetworkLink
-	    // object that will be put on a fileDescriptor
+	    // The first thing we do is check if there is availability for a new Socket
+	    // object that will be put on a socketDescriptor
 	    int openSocketDescriptor = getAvailableSocketDescriptor();
 
 	    // If there isn't any open file descriptors or the port is not within bounds, we return -1
@@ -162,24 +151,27 @@ public class NetProcess extends UserProcess {
 	    // We have modified this constructor
 	    MailMessage mailMessage;
 
-	    try
-	    {
-		    // int dstLink, int dstPort, int srcLink, int srcPort,
-		    // boolean fin, boolean stp, boolean ack, boolean syn, int seqno,
-		    // byte[] contents
-		    mailMessage = new MailMessage(host, port, Machine.networkLink().getLinkAddress(), CHAT_PORT,
-				    false, false, false, true, 0, contents);
+	    // The address of our machine
+	    int localAddress = Machine.networkLink().getLinkAddress();
+
+	    // Need to wrap this in a try/catch because it throws an exception
+	    try {
+		    mailMessage = new MailMessage(host, port, localAddress, CHAT_PORT,
+				    false, false, false, true, 1, contents);
 	    }
-	    catch (MalformedPacketException e)
-	    {
+	    catch (MalformedPacketException e) {
 		    e.printStackTrace();
 
 		    return -1;
 	    }
 
-	    // Assign the openSocketDescriptor a NetworkLink object that will listen for
+	    // Create a socket to assign to socketDescriptor
+	    // A socket just holds variables so we know who we're talking to
+	    Socket socket = new Socket(localAddress, port, host, port);
+
+	    // Assign the openSocketDescriptor a Socket object that will listen for
 	    // calls from this specific program that handled the connection
-	    socketDescriptor[openSocketDescriptor] = new Socket();
+	    socketDescriptor[openSocketDescriptor] = socket;
 
 	    // Send the SYN packet being wrapped by the MailMessage
 	    postOffice.send(mailMessage);
