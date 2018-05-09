@@ -114,6 +114,9 @@ public class MailMessage {
 	    "), " + contents.length + " bytes";
     }
 
+    public boolean isData() {
+	return transportFlags.get(3) == 0 && transportFlags.get(2) == 0 && transportFlags.get(1) == 0 && transportFlags.get(0) == 0;
+    }
     public boolean isFin() {
 	return transportFlags.get(3);
     }
@@ -125,6 +128,12 @@ public class MailMessage {
     }
     public boolean isSyn() {
 	return transportFlags.get(0);
+    }
+    public boolean isSynAck() {
+	return transportFlags.get(0) && transportFlags.get(1);
+    }
+    public boolean isFinAck() {
+	return transportFlags.get(3) && transportFlags.get(1);
     }
 
     /** */

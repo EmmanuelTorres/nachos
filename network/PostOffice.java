@@ -195,6 +195,34 @@ public class PostOffice {
 	sendLock.release();
     }
 
+    public void sendSynAck(Socket socket) {
+	MailMessage mail = new MailMessage(socket, false, false, true, true, 0, new byte[0]);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending synack packet");
+
+	sendLock.acquire();
+
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
+    public void sendFinAck(Socket socket) {
+	MailMessage mail = new MailMessage(socket, true, false, true, false, 0, new byte[0]);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending finack packet");
+
+	sendLock.acquire();
+
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
     /**
      * Called when a packet has been sent and another can be queued to the
      * network link. Note that this is called even if the previous packet was
