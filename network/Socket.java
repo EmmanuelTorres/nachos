@@ -4,19 +4,37 @@ import nachos.threads.*;
 
 public class Socket
 {
+	public enum State {
+		CLOSED, SYN_SENT, SYN_RCVD, ESTABLISHED, STP_RCVD, STP_SENT, CLOSING
+	}
+
+	public State state;
+
 	private int hostAddress;
 	private int hostPort;
 	private int clientAddress;
 	private int clientPort;
-	static private int WINDOW_SIZE = 16;
-	public Semaphore packetCredit;
+
+	public Lock needAcceptLock;
+	public Condition needAccept;
+
+	private static final int WINDOW_SIZE = 16;
+	public Semaphore packetCredit; // need to enforce <= 16
+
+	public Connection connection;
 
 	public Socket(int hostAddress, int hostPort, int clientAddress, int clientPort)
 	{
+		state = Socket.State.CLOSED;
+
 		this.hostAddress = hostAddress;
 		this.hostPort = hostPort;
 		this.clientAddress = clientAddress;
 		this.clientPort = clientPort;
+
+		needAcceptLock = new Lock();
+		needAccept = new Condition(needAcceptLock);
+
 		packetCredit = new Semaphore(WINDOW_SIZE);
 	}
 	public int getHostAddress() {

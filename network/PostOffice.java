@@ -120,6 +120,8 @@ public class PostOffice {
     }
 
     public void sendData(Socket socket, int seqno, byte[] contents) {
+	if(socket.state != Socket.State.ESTABLISHED)
+		return;
 	try {
 		MailMessage mail = new MailMessage(socket, false, false, false, false, seqno, contents);
 

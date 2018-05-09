@@ -186,6 +186,9 @@ public class MailMessage {
     public boolean isFinAck() {
 	return transportFlags.get(3) && transportFlags.get(1);
     }
+    public Socket getSocket() {
+	return socket;
+    }
 
     /** */
     public Socket socket;

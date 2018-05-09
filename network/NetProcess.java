@@ -156,6 +156,12 @@ public class NetProcess extends UserProcess {
 
 	    // Send the SYN packet
 	    postOffice.sendSyn(socket);
+	    socket.state = Socket.State.SYN_SENT;
+
+	    // Sleep until SYN/ACK received
+	    socket.needAcceptLock.acquire();
+	    socket.needAccept.sleep();
+	    socket.needAcceptLock.release();
 
 	    // Return a new file descriptor referring to the connection
 	    return openSocketDescriptor;
@@ -180,8 +186,41 @@ public class NetProcess extends UserProcess {
 	 * occurred.
 	 */
 	private int handleAccept(int port) {
+		// The first thing we do is check if there is availability for a new Socket
+		// object that will be put on a socketDescriptor
+		int openSocketDescriptor = getAvailableSocketDescriptor();
 
-		// Returns a new file descriptor referring to the connection, or -1 if an error occurred
-		return getAvailableSocketDescriptor();
+		// If there isn't any open file descriptors or the port is not within bounds, we return -1
+		if (openSocketDescriptor == -1 || !withinPortBounds(port)) {
+			return openSocketDescriptor;
+		}
+
+		MailMessage mail = postOffice.receive(port);
+		if(mail.isSyn()) {
+			Socket mailSocket = mail.getSocket();
+			if(mailSocket.state == Socket.State.SYN_SENT) {
+				Socket socket = new Socket(mailSocket.getClientAddress(), mailSocket.getClientPort(), mailSocket.getHostAddress(), mailSocket.getHostPort());
+
+				// Assign the openSocketDescriptor a Socket object that will listen for
+				// calls from this specific program that handled the connection
+				socketDescriptor[openSocketDescriptor] = socket;
+
+				// Send the SYN/ACK packet
+				postOffice.sendSynAck(socket);
+
+				// Wake sleeping connect() thread
+				mailSocket.needAcceptLock.acquire();
+				mailSocket.needAccept.wake();
+				mailSocket.needAcceptLock.release();
+
+				// Update socket states
+				mailSocket.state = Socket.State.ESTABLISHED;
+				socket.state = Socket.State.ESTABLISHED;
+
+				// Return a new file descriptor referring to the connection
+				return openSocketDescriptor;
+			}
+		}
+		return -1;
 	}
 }
