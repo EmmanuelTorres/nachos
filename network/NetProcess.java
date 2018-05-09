@@ -89,6 +89,12 @@ public class NetProcess extends UserProcess {
 				return handleConnect(a0, a1);
 			case syscallAccept:
 				return handleAccept(a0);
+			case syscallRead:
+				return handleRead(a0, a1, a2);
+			case syscallWrite:
+				return handleWrite(a0, a1, a2);
+			case syscallClose:
+				return handleClose(a0);
 			default:
 			    return super.handleSyscall(syscall, a0, a1, a2, a3);
 		}
@@ -102,8 +108,8 @@ public class NetProcess extends UserProcess {
 	 * @return The amount of bytes written, or -1 on error
 	 */
 	private int handleWrite(int socket, int buffer, int port) {
-    	return -1;
-    }
+		return -1;
+	}
 
 	/**
 	 *
@@ -113,8 +119,8 @@ public class NetProcess extends UserProcess {
 	 * @return The amount of bytes read, 0 on no bytes available, or -1 on error
 	 */
 	private int handleRead(int socket, int buffer, int port) {
-    	return -1;
-    }
+		return -1;
+	}
 
 	/**
 	 * Handles the tear-down between the two connections. This will first receive
@@ -124,15 +130,15 @@ public class NetProcess extends UserProcess {
 	 * @return
 	 */
 	private int handleClose(int socket) {
-        // All bounds should have been checked by this point, so no need
-        //  to redundantly check again
-        // 
-        // Simply send the fin packet to the connected address
-        //postOffice.sendFin(socket);
-        
-        // idk what to return here at the moment
-        return -1;
-    }
+		// All bounds should have been checked by this point, so no need
+		//  to redundantly check again
+		// 
+		// Simply send the fin packet to the connected address
+		//postOffice.sendFin(socket);
+
+		// idk what to return here at the moment
+        	return -1;
+    	}
 
 	/**
 	 * Attempt to initiate a new connection to the specified port on the specified
