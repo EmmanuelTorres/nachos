@@ -143,27 +143,8 @@ public class NetProcess extends UserProcess {
 	    	return openSocketDescriptor;
 	    }
 
-	    // With the SYN packet, we don't pack any contents into the message
-	    // It's a blank packet that is a type of SYN
-	    byte[] contents = new byte[0];
-
-	    // Create a message to send to the client
-	    // We have modified this constructor
-	    MailMessage mailMessage;
-
 	    // The address of our machine
 	    int localAddress = Machine.networkLink().getLinkAddress();
-
-	    // Need to wrap this in a try/catch because it throws an exception
-	    try {
-		    mailMessage = new MailMessage(host, port, localAddress, CHAT_PORT,
-				    false, false, false, true, 1, contents);
-	    }
-	    catch (MalformedPacketException e) {
-		    e.printStackTrace();
-
-		    return -1;
-	    }
 
 	    // Create a socket to assign to socketDescriptor
 	    // A socket just holds variables so we know who we're talking to
@@ -173,8 +154,8 @@ public class NetProcess extends UserProcess {
 	    // calls from this specific program that handled the connection
 	    socketDescriptor[openSocketDescriptor] = socket;
 
-	    // Send the SYN packet being wrapped by the MailMessage
-	    postOffice.send(mailMessage);
+	    // Send the SYN packet
+	    postOffice.sendSyn(socket);
 
 	    // Return a new file descriptor referring to the connection
 	    return openSocketDescriptor;
