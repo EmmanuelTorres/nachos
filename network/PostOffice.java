@@ -59,6 +59,14 @@ public class PostOffice {
 	Lib.debug(dbgNet, "waiting for mail on port " + port);
 
 	MailMessage mail = (MailMessage) queues[port].removeFirst();
+	if(mail.isAck()) {
+		try {
+			mail.socket.packetCredit.V();
+		}
+		catch (MalformedPacketException e) {
+			continue;
+		}
+	}
 
 	if (Lib.test(dbgNet))
 	    System.out.println("got mail on port " + port + ": " + mail);
@@ -123,9 +131,7 @@ public class PostOffice {
 
 	sendLock.acquire();
 
-	if(socket.hasPacketCredit() == false)
-		socket.needPacketCredit.sleep();
-	socket.decPacketCredit();
+	socket.P();
 	Machine.networkLink().send(mail.packet);
 
 	messageSent.P();

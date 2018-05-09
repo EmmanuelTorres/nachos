@@ -14,57 +14,6 @@ public class MailMessage {
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
      *
-     * @param	dstLink		the destination link address.
-     * @param	dstPort		the destination port.
-     * @param	srcLink		the source link address.
-     * @param	srcPort		the source port.
-     * @param	fin
-     * @param	stp
-     * @param	ack
-     * @param	syn
-     * @param	seqno
-     * @param	contents	the contents of the packet.
-     */
-    public MailMessage(int dstLink, int dstPort, int srcLink, int srcPort,
-		       boolean fin, boolean stp, boolean ack, boolean syn, int seqno,
-		       byte[] contents) throws MalformedPacketException {
-	// make sure the paramters are valid
-	if (dstPort < 0 || dstPort >= portLimit ||
-	    srcPort < 0 || srcPort >= portLimit ||
-	    contents.length > maxContentsLength)
-	    throw new MalformedPacketException();
-
-	this.dstPort = (byte) dstPort;
-	this.srcPort = (byte) srcPort;
-	transportFlags = new BitSet(4);
-	transportFlags.set(3, fin);
-	transportFlags.set(2, stp);
-	transportFlags.set(1, ack);
-	transportFlags.set(0, syn);
-	this.seqno = seqno;
-	this.contents = contents;
-
-	byte[] packetContents = new byte[headerLength + contents.length];
-
-	packetContents[0] = (byte) dstPort;
-	packetContents[1] = (byte) srcPort;
-	packetContents[2] = 0;
-	byte[] transportFlagsByte = toByteArray(transportFlags);
-	packetContents[3] = transportFlagsByte[0];
-	byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
-	for(int i = 0; i < 4; i++) {
-	    packetContents[4+i] = seqnoBytes[i];
-	}
-	
-
-	System.arraycopy(contents, 0, packetContents, headerLength,
-			 contents.length);
-
-	packet = new Packet(dstLink, srcLink, packetContents);
-    }
-    /**
-     * Allocate a new mail message to be sent, using the specified parameters.
-     *
      * @param	socket		the socket
      * @param	fin
      * @param	stp
@@ -76,6 +25,7 @@ public class MailMessage {
     public MailMessage(Socket socket,
 		       boolean fin, boolean stp, boolean ack, boolean syn, int seqno,
 		       byte[] contents) throws MalformedPacketException {
+	this.socket = socket;
 	int dstLink = socket.getClientAddress();
 	int dstPort = socket.getClientPort();
 	int srcLink = socket.getHostAddress();
@@ -177,6 +127,8 @@ public class MailMessage {
 	return transportFlags.get(0);
     }
 
+    /** */
+    public Socket socket;
     /** This message, as a packet that can be sent through a network link. */
     public Packet packet;
     /** The port used by this message on the destination machine. */
