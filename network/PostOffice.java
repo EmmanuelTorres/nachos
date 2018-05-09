@@ -133,6 +133,62 @@ public class PostOffice {
 	sendLock.release();
     }
 
+    public void sendFin(Socket socket) {
+	MailMessage mail = new MailMessage(socket, true, false, false, false, 0, new byte[0]);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending fin packet");
+
+	sendLock.acquire();
+
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
+    public void sendStp(Socket socket) {
+	MailMessage mail = new MailMessage(socket, false, true, false, false, 0, new byte[0]);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending stp packet");
+
+	sendLock.acquire();
+
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
+    public void sendAck(Socket socket) {
+	MailMessage mail = new MailMessage(socket, false, false, true, false, 0, new byte[0]);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending ack packet");
+
+	sendLock.acquire();
+
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
+    public void sendSyn(Socket socket) {
+	MailMessage mail = new MailMessage(socket, false, false, false, true, 0, new byte[0]);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending syn packet");
+
+	sendLock.acquire();
+
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
     /**
      * Called when a packet has been sent and another can be queued to the
      * network link. Note that this is called even if the previous packet was
