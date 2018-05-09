@@ -116,6 +116,23 @@ public class PostOffice {
 	sendLock.release();
     }
 
+    public void sendData(Socket socket, int seqno, byte[] contents) {
+	MailMessage mail = new MailMessage(socket, false, false, false, false, seqno, contents);
+	if (Lib.test(dbgNet))
+	    System.out.println("sending data packet: " + seqno + contents);
+
+	sendLock.acquire();
+
+	if(socket.hasPacketCredit() == false)
+		socket.needPacketCredit.sleep();
+	socket.decPacketCredit();
+	Machine.networkLink().send(mail.packet);
+
+	messageSent.P();
+
+	sendLock.release();
+    }
+
     /**
      * Called when a packet has been sent and another can be queued to the
      * network link. Note that this is called even if the previous packet was

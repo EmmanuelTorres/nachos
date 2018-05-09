@@ -62,7 +62,58 @@ public class MailMessage {
 
 	packet = new Packet(dstLink, srcLink, packetContents);
     }
+    /**
+     * Allocate a new mail message to be sent, using the specified parameters.
+     *
+     * @param	socket		the socket
+     * @param	fin
+     * @param	stp
+     * @param	ack
+     * @param	syn
+     * @param	seqno
+     * @param	contents	the contents of the packet.
+     */
+    public MailMessage(Socket socket,
+		       boolean fin, boolean stp, boolean ack, boolean syn, int seqno,
+		       byte[] contents) throws MalformedPacketException {
+	int dstLink = socket.getClientAddress();
+	int dstPort = socket.getClientPort();
+	int srcLink = socket.getHostAddress();
+	int srcPort = socket.getHostPort();
+	// make sure the paramters are valid
+	if (dstPort < 0 || dstPort >= portLimit ||
+	    srcPort < 0 || srcPort >= portLimit ||
+	    contents.length > maxContentsLength)
+	    throw new MalformedPacketException();
+
+	this.dstPort = (byte) dstPort;
+	this.srcPort = (byte) srcPort;
+	transportFlags = new BitSet(4);
+	transportFlags.set(3, fin);
+	transportFlags.set(2, stp);
+	transportFlags.set(1, ack);
+	transportFlags.set(0, syn);
+	this.seqno = seqno;
+	this.contents = contents;
+
+	byte[] packetContents = new byte[headerLength + contents.length];
+
+	packetContents[0] = (byte) dstPort;
+	packetContents[1] = (byte) srcPort;
+	packetContents[2] = 0;
+	byte[] transportFlagsByte = toByteArray(transportFlags);
+	packetContents[3] = transportFlagsByte[0];
+	byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
+	for(int i = 0; i < 4; i++) {
+	    packetContents[4+i] = seqnoBytes[i];
+	}
 	
+
+	System.arraycopy(contents, 0, packetContents, headerLength,
+			 contents.length);
+
+	packet = new Packet(dstLink, srcLink, packetContents);
+    }
     /**
      * Allocate a new mail message using the specified packet from the network.
      *
@@ -113,16 +164,16 @@ public class MailMessage {
 	    "), " + contents.length + " bytes";
     }
 
-    public boolean getFin() {
+    public boolean isFin() {
 	return transportFlags.get(3);
     }
-    public boolean getStp() {
+    public boolean isStp() {
 	return transportFlags.get(2);
     }
-    public boolean getAck() {
+    public boolean isAck() {
 	return transportFlags.get(1);
     }
-    public boolean getSyn() {
+    public boolean isSyn() {
 	return transportFlags.get(0);
     }
 
