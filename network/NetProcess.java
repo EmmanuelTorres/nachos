@@ -124,7 +124,14 @@ public class NetProcess extends UserProcess {
 	 * @return
 	 */
 	private int handleClose(int socket) {
-		return -1;
+        // All bounds should have been checked by this point, so no need
+        //  to redundantly check again
+        // 
+        // Simply send the fin packet to the connected address
+        postOffice.sendFin(socket);
+        
+        // idk what to return here at the moment
+        return -1;
     }
 
 	/**
@@ -179,7 +186,7 @@ public class NetProcess extends UserProcess {
 	 * Returns a new file descriptor referring to the connection, or -1 if an error
 	 * occurred.
 	 */
-	private int handleAccept(int port) {
+	private int handleAccept(int port) { 
 
 		// Returns a new file descriptor referring to the connection, or -1 if an error occurred
 		return getAvailableSocketDescriptor();
