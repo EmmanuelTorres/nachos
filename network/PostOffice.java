@@ -60,12 +60,7 @@ public class PostOffice {
 
 	MailMessage mail = (MailMessage) queues[port].removeFirst();
 	if(mail.isAck()) {
-		try {
-			mail.socket.packetCredit.V();
-		}
-		catch (MalformedPacketException e) {
-			continue;
-		}
+		mail.socket.packetCredit.V();
 	}
 
 	if (Lib.test(dbgNet))
@@ -125,102 +120,138 @@ public class PostOffice {
     }
 
     public void sendData(Socket socket, int seqno, byte[] contents) {
-	MailMessage mail = new MailMessage(socket, false, false, false, false, seqno, contents);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending data packet: " + seqno + contents);
+	try {
+		MailMessage mail = new MailMessage(socket, false, false, false, false, seqno, contents);
 
-	sendLock.acquire();
+		if (Lib.test(dbgNet))
+		    System.out.println("sending data packet: " + seqno + contents);
 
-	socket.P();
-	Machine.networkLink().send(mail.packet);
+		sendLock.acquire();
 
-	messageSent.P();
+		socket.packetCredit.P();
+		Machine.networkLink().send(mail.packet);
 
-	sendLock.release();
+		messageSent.P();
+
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     public void sendFin(Socket socket) {
-	MailMessage mail = new MailMessage(socket, true, false, false, false, 0, new byte[0]);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending fin packet");
+	try {
+		MailMessage mail = new MailMessage(socket, true, false, false, false, 0, new byte[0]);
+		if (Lib.test(dbgNet))
+		    System.out.println("sending fin packet");
 
-	sendLock.acquire();
+		sendLock.acquire();
 
-	Machine.networkLink().send(mail.packet);
+		Machine.networkLink().send(mail.packet);
 
-	messageSent.P();
+		messageSent.P();
 
-	sendLock.release();
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     public void sendStp(Socket socket) {
-	MailMessage mail = new MailMessage(socket, false, true, false, false, 0, new byte[0]);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending stp packet");
+	try {
+		MailMessage mail = new MailMessage(socket, false, true, false, false, 0, new byte[0]);
+		if (Lib.test(dbgNet))
+		    System.out.println("sending stp packet");
 
-	sendLock.acquire();
+		sendLock.acquire();
 
-	Machine.networkLink().send(mail.packet);
+		Machine.networkLink().send(mail.packet);
 
-	messageSent.P();
+		messageSent.P();
 
-	sendLock.release();
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     public void sendAck(Socket socket) {
-	MailMessage mail = new MailMessage(socket, false, false, true, false, 0, new byte[0]);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending ack packet");
+	try {
+		MailMessage mail = new MailMessage(socket, false, false, true, false, 0, new byte[0]);
+		if (Lib.test(dbgNet))
+		    System.out.println("sending ack packet");
 
-	sendLock.acquire();
+		sendLock.acquire();
 
-	Machine.networkLink().send(mail.packet);
+		Machine.networkLink().send(mail.packet);
 
-	messageSent.P();
+		messageSent.P();
 
-	sendLock.release();
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     public void sendSyn(Socket socket) {
-	MailMessage mail = new MailMessage(socket, false, false, false, true, 0, new byte[0]);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending syn packet");
+	try {
+		MailMessage mail = new MailMessage(socket, false, false, false, true, 0, new byte[0]);
+		if (Lib.test(dbgNet))
+		    System.out.println("sending syn packet");
 
-	sendLock.acquire();
+		sendLock.acquire();
 
-	Machine.networkLink().send(mail.packet);
+		Machine.networkLink().send(mail.packet);
 
-	messageSent.P();
+		messageSent.P();
 
-	sendLock.release();
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     public void sendSynAck(Socket socket) {
-	MailMessage mail = new MailMessage(socket, false, false, true, true, 0, new byte[0]);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending synack packet");
+	try {
+		MailMessage mail = new MailMessage(socket, false, false, true, true, 0, new byte[0]);
+		if (Lib.test(dbgNet))
+		    System.out.println("sending synack packet");
 
-	sendLock.acquire();
+		sendLock.acquire();
 
-	Machine.networkLink().send(mail.packet);
+		Machine.networkLink().send(mail.packet);
 
-	messageSent.P();
+		messageSent.P();
 
-	sendLock.release();
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     public void sendFinAck(Socket socket) {
-	MailMessage mail = new MailMessage(socket, true, false, true, false, 0, new byte[0]);
-	if (Lib.test(dbgNet))
-	    System.out.println("sending finack packet");
+	try {
+		MailMessage mail = new MailMessage(socket, true, false, true, false, 0, new byte[0]);
+		if (Lib.test(dbgNet))
+		    System.out.println("sending finack packet");
 
-	sendLock.acquire();
+		sendLock.acquire();
 
-	Machine.networkLink().send(mail.packet);
+		Machine.networkLink().send(mail.packet);
 
-	messageSent.P();
+		messageSent.P();
 
-	sendLock.release();
+		sendLock.release();
+	}
+	catch (MalformedPacketException e) {
+ 		    e.printStackTrace();
+	}
     }
 
     /**
