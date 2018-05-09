@@ -64,7 +64,10 @@ public class NetProcess extends UserProcess {
 
     private static final int
 	syscallConnect = 11,
-	syscallAccept = 12;
+	syscallAccept = 12,
+	syscallRead = 6,
+	syscallWrite = 7,
+	syscallClose = 8;
     
     /**
      * Handle a syscall exception. Called by <tt>handleException()</tt>. The
@@ -129,15 +132,15 @@ public class NetProcess extends UserProcess {
 	 * @param socket
 	 * @return
 	 */
-	private int handleClose(int socket) {
+	private int handleClose(int s) {
 		// All bounds should have been checked by this point, so no need
 		//  to redundantly check again
-		// 
-		// Simply send the fin packet to the connected address
-		//postOffice.sendFin(socket);
+		Socket socket = socketDescriptor[s];
+		postOffice.sendStp(socket);
+		socket.state = Socket.State.CLOSING;
 
 		// idk what to return here at the moment
-        	return -1;
+		return 0;
     	}
 
 	/**

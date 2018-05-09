@@ -24,6 +24,7 @@ public class Socket
 
 	public Vector<MailMessage> sendBuffer;
 	public MailMessage[] receiveBuffer;
+	public seqnoIndex;
 
 	public Socket(int hostAddress, int hostPort, int clientAddress, int clientPort)
 	{
@@ -41,6 +42,8 @@ public class Socket
 
 		sendBuffer = new Vector<MailMessage>();
 		receiveBuffer = new MailMessage[WINDOW_SIZE];
+
+		seqnoIndex = 0;
 	}
 	public int getHostAddress() {
 		return hostAddress;
