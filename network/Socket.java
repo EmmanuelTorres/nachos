@@ -24,7 +24,7 @@ public class Socket
 
 	public Vector<MailMessage> sendBuffer;
 	public MailMessage[] receiveBuffer;
-	public seqnoIndex;
+	public int seqnoIndex;
 
 	public Socket(int hostAddress, int hostPort, int clientAddress, int clientPort)
 	{

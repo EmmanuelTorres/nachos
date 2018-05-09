@@ -163,7 +163,7 @@ public class PostOffice {
 
     public void sendStp(Socket socket) {
 	try {
-		MailMessage mail = new MailMessage(socket, false, true, false, false, seqnoIndex+1, new byte[0]);
+		MailMessage mail = new MailMessage(socket, false, true, false, false, socket.seqnoIndex+1, new byte[0]);
 		if (Lib.test(dbgNet))
 		    System.out.println("sending stp packet");
 
