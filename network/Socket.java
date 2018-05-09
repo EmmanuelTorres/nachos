@@ -1,6 +1,7 @@
 package nachos.network;
 
 import nachos.threads.*;
+import java.util.Vector;
 
 public class Socket
 {
@@ -21,7 +22,8 @@ public class Socket
 	private static final int WINDOW_SIZE = 16;
 	public Semaphore packetCredit; // need to enforce <= 16
 
-	public Connection connection;
+	public Vector<MailMessage> sendBuffer;
+	public MailMessage[] receiveBuffer;
 
 	public Socket(int hostAddress, int hostPort, int clientAddress, int clientPort)
 	{
@@ -36,6 +38,9 @@ public class Socket
 		needAccept = new Condition(needAcceptLock);
 
 		packetCredit = new Semaphore(WINDOW_SIZE);
+
+		sendBuffer = new Vector<MailMessage>();
+		receiveBuffer = new MailMessage[WINDOW_SIZE];
 	}
 	public int getHostAddress() {
 		return hostAddress;

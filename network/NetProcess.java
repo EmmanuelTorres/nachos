@@ -128,7 +128,7 @@ public class NetProcess extends UserProcess {
         //  to redundantly check again
         // 
         // Simply send the fin packet to the connected address
-        postOffice.sendFin(socket);
+        //postOffice.sendFin(socket);
         
         // idk what to return here at the moment
         return -1;
