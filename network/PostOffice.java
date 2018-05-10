@@ -59,28 +59,23 @@ public class PostOffice {
 	Lib.debug(dbgNet, "waiting for mail on port " + port);
 
 	MailMessage mail = (MailMessage) queues[port].removeFirst();
-	try {
-		switch(mail.getType()) {
-			case DATA:
-				break;
-			case SYN:
-				break;
-			case SYNACK:
-				break;
-			case ACK:
-				mail.socket.packetCredit.V();
-				mail.socket.seqnoIndex++;
-				break;
-			case STP:
-				break;
-			case FIN:
-				break;
-			case FINACK:
-				break;
-		}
-	}
-	catch(MalformedPacketException e) {
- 		    e.printStackTrace();
+	switch(mail.getType()) {
+		case DATA:
+			break;
+		case SYN:
+			break;
+		case SYNACK:
+			break;
+		case ACK:
+			mail.socket.packetCredit.V();
+			mail.socket.seqnoIndex++;
+			break;
+		case STP:
+			break;
+		case FIN:
+			break;
+		case FINACK:
+			break;
 	}
 
 	if (Lib.test(dbgNet))
@@ -134,146 +129,11 @@ public class PostOffice {
 	sendLock.acquire();
 
 	Machine.networkLink().send(mail.packet);
+	if(mail.getType() == MailMessage.Type.DATA)
+		mail.socket.packetCredit.P();
 	messageSent.P();
 
 	sendLock.release();
-    }
-
-    public void sendData(Socket socket, int seqno, byte[] contents) {
-	if(socket.state != Socket.State.ESTABLISHED)
-		return;
-	try {
-		MailMessage mail = new MailMessage(socket, false, false, false, false, seqno, contents);
-
-		if (Lib.test(dbgNet))
-		    System.out.println("sending data packet: " + seqno + contents);
-
-		sendLock.acquire();
-
-		socket.packetCredit.P();
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
-    }
-
-    public void sendFin(Socket socket) {
-	try {
-		MailMessage mail = new MailMessage(socket, true, false, false, false, 0, new byte[0]);
-		if (Lib.test(dbgNet))
-		    System.out.println("sending fin packet");
-
-		sendLock.acquire();
-
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
-    }
-
-    public void sendStp(Socket socket) {
-	try {
-		MailMessage mail = new MailMessage(socket, false, true, false, false, socket.seqnoIndex+1, new byte[0]);
-		if (Lib.test(dbgNet))
-		    System.out.println("sending stp packet");
-
-		sendLock.acquire();
-
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
-    }
-
-    public void sendAck(Socket socket) {
-	try {
-		MailMessage mail = new MailMessage(socket, false, false, true, false, 0, new byte[0]);
-		if (Lib.test(dbgNet))
-		    System.out.println("sending ack packet");
-
-		sendLock.acquire();
-
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
-    }
-
-    public void sendSyn(Socket socket) {
-	try {
-		MailMessage mail = new MailMessage(socket, false, false, false, true, 0, new byte[0]);
-		if (Lib.test(dbgNet))
-		    System.out.println("sending syn packet");
-
-		sendLock.acquire();
-
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
-    }
-
-    public void sendSynAck(Socket socket) {
-	try {
-		MailMessage mail = new MailMessage(socket, false, false, true, true, 0, new byte[0]);
-		if (Lib.test(dbgNet))
-		    System.out.println("sending synack packet");
-
-		sendLock.acquire();
-
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
-    }
-
-    public void sendFinAck(Socket socket) {
-	try {
-		MailMessage mail = new MailMessage(socket, true, false, true, false, 0, new byte[0]);
-		if (Lib.test(dbgNet))
-		    System.out.println("sending finack packet");
-
-		sendLock.acquire();
-
-		Machine.networkLink().send(mail.packet);
-
-		messageSent.P();
-
-		sendLock.release();
-	}
-	catch (MalformedPacketException e) {
- 		    e.printStackTrace();
-	}
     }
 
     /**

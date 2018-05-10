@@ -143,7 +143,7 @@ public class NetProcess extends UserProcess {
 		// All bounds should have been checked by this point, so no need
 		//  to redundantly check again
 		Socket socket = socketDescriptor[s];
-		postOffice.sendStp(socket);
+		postOffice.send(new MailMessage(socket, MailMessage.Type.STP));
 		socket.state = Socket.State.CLOSING;
 
 		// idk what to return here at the moment
@@ -178,7 +178,7 @@ public class NetProcess extends UserProcess {
 	    socketDescriptor[openSocketDescriptor] = socket;
 
 	    // Send the SYN packet
-	    postOffice.sendSyn(socket);
+	    postOffice.send(new MailMessage(socket, MailMessage.Type.SYN));
 	    socket.state = Socket.State.SYN_SENT;
 
 	    // Sleep until SYN/ACK received
@@ -229,7 +229,7 @@ public class NetProcess extends UserProcess {
 				socketDescriptor[openSocketDescriptor] = socket;
 
 				// Send the SYN/ACK packet
-				postOffice.sendSynAck(socket);
+				postOffice.send(new MailMessage(socket, MailMessage.Type.SYNACK));
 
 				// Wake sleeping connect() thread
 				mailSocket.needAcceptLock.acquire();

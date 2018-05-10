@@ -76,7 +76,7 @@ public class MailMessage {
      * @param	seqno
      * @param	contents
      */
-    public MailMessage(Socket socket, int seqno, byte[] contents) throws MalformedPacketException {
+    public MailMessage(Socket socket, int seqno, byte[] contents) {
 	transportFlags = new BitSet(4);
 	transportFlags.set(finFlagIndex, false);
 	transportFlags.set(stpFlagIndex, false);
@@ -91,11 +91,6 @@ public class MailMessage {
 	int dstPort = socket.getClientPort();
 	int srcLink = socket.getHostAddress();
 	int srcPort = socket.getHostPort();
-	// make sure the paramters are valid
-	if (dstPort < 0 || dstPort >= portLimit ||
-	    srcPort < 0 || srcPort >= portLimit ||
-	    contents.length > maxContentsLength)
-	    throw new MalformedPacketException();
 
 	this.dstPort = (byte) dstPort;
 	this.srcPort = (byte) srcPort;
@@ -115,7 +110,12 @@ public class MailMessage {
 	System.arraycopy(contents, 0, packetContents, headerLength,
 			 contents.length);
 
-	packet = new Packet(dstLink, srcLink, packetContents);
+	try{
+		packet = new Packet(dstLink, srcLink, packetContents);
+	}
+	catch(MalformedPacketException e) {
+
+	}
     }
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
@@ -123,11 +123,14 @@ public class MailMessage {
      * @param	socket		the socket
      * @param	type
      */
-    public MailMessage(Socket socket, MailMessage.Type type) throws MalformedPacketException {
+    public MailMessage(Socket socket, MailMessage.Type type) {
 	transportFlags = new BitSet(4);
 	switch(type) {
 		case DATA:
-			throw new MalformedPacketException();
+			transportFlags.set(finFlagIndex, false);
+			transportFlags.set(stpFlagIndex, false);
+			transportFlags.set(ackFlagIndex, false);
+			transportFlags.set(synFlagIndex, false);
 		case FIN:
 			transportFlags.set(finFlagIndex, true);
 			transportFlags.set(stpFlagIndex, false);
@@ -174,11 +177,6 @@ public class MailMessage {
 	int dstPort = socket.getClientPort();
 	int srcLink = socket.getHostAddress();
 	int srcPort = socket.getHostPort();
-	// make sure the paramters are valid
-	if (dstPort < 0 || dstPort >= portLimit ||
-	    srcPort < 0 || srcPort >= portLimit ||
-	    contents.length > maxContentsLength)
-	    throw new MalformedPacketException();
 
 	this.dstPort = (byte) dstPort;
 	this.srcPort = (byte) srcPort;
@@ -198,7 +196,12 @@ public class MailMessage {
 	System.arraycopy(contents, 0, packetContents, headerLength,
 			 contents.length);
 
+	try {
 	packet = new Packet(dstLink, srcLink, packetContents);
+	}
+	catch(MalformedPacketException e) {
+
+	}
     }
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
@@ -325,7 +328,7 @@ public class MailMessage {
     public boolean isFinAck() {
 	return transportFlags.get(3) && (!transportFlags.get(2)) && transportFlags.get(1) && (!transportFlags.get(0));
     }
-    public Type getType() throws MalformedPacketException {
+    public Type getType() {
 	if(this.isData())
 		return MailMessage.Type.DATA;
 	else if(this.isFin())
@@ -340,9 +343,7 @@ public class MailMessage {
 		return MailMessage.Type.SYNACK;
 	else if(this.isFinAck())
 		return MailMessage.Type.FINACK;
-	else
-		throw new MalformedPacketException();
-
+	return MailMessage.Type.DATA;
     }
     public Socket getSocket() {
 	return socket;
