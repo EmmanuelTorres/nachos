@@ -59,8 +59,28 @@ public class PostOffice {
 	Lib.debug(dbgNet, "waiting for mail on port " + port);
 
 	MailMessage mail = (MailMessage) queues[port].removeFirst();
-	if(mail.isAck()) {
-		mail.socket.packetCredit.V();
+	try {
+		switch(mail.getType()) {
+			case DATA:
+				break;
+			case SYN:
+				break;
+			case SYNACK:
+				break;
+			case ACK:
+				mail.socket.packetCredit.V();
+				mail.socket.seqnoIndex++;
+				break;
+			case STP:
+				break;
+			case FIN:
+				break;
+			case FINACK:
+				break;
+		}
+	}
+	catch(MalformedPacketException e) {
+ 		    e.printStackTrace();
 	}
 
 	if (Lib.test(dbgNet))

@@ -14,6 +14,10 @@ public class MailMessage {
 	public enum Type {
 		DATA, FIN, STP, ACK, SYN, SYNACK, FINACK
 	}
+	public static final finFlagIndex = 3;
+	public static final stpFlagIndex = 2;
+	public static final ackFlagIndex = 1;
+	public static final synFlagIndex = 0;
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
      *
@@ -59,6 +63,138 @@ public class MailMessage {
 	    packetContents[4+i] = seqnoBytes[i];
 	}
 	
+
+	System.arraycopy(contents, 0, packetContents, headerLength,
+			 contents.length);
+
+	packet = new Packet(dstLink, srcLink, packetContents);
+    }
+    /**
+     * Allocate a new mail message to be sent, using the specified parameters.
+     *
+     * @param	socket		the socket
+     * @param	seqno
+     * @param	contents
+     */
+    public MailMessage(Socket socket, int seqno, byte[] contents) throws MalformedPacketException {
+	transportFlags = new BitSet(4);
+	transportFlags.set(finFlagIndex, false);
+	transportFlags.set(stpFlagIndex, false);
+	transportFlags.set(ackFlagIndex, false);
+	transportFlags.set(synFlagIndex, false);
+
+	this.seqno = seqno;
+	this.contents = contents;
+
+	this.socket = socket;
+	int dstLink = socket.getClientAddress();
+	int dstPort = socket.getClientPort();
+	int srcLink = socket.getHostAddress();
+	int srcPort = socket.getHostPort();
+	// make sure the paramters are valid
+	if (dstPort < 0 || dstPort >= portLimit ||
+	    srcPort < 0 || srcPort >= portLimit ||
+	    contents.length > maxContentsLength)
+	    throw new MalformedPacketException();
+
+	this.dstPort = (byte) dstPort;
+	this.srcPort = (byte) srcPort;
+
+	byte[] packetContents = new byte[headerLength + contents.length];
+
+	packetContents[0] = (byte) dstPort;
+	packetContents[1] = (byte) srcPort;
+	packetContents[2] = 0;
+	byte[] transportFlagsByte = toByteArray(transportFlags);
+	packetContents[3] = transportFlagsByte[0];
+	byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
+	for(int i = 0; i < 4; i++) {
+	    packetContents[4+i] = seqnoBytes[i];
+	}
+
+	System.arraycopy(contents, 0, packetContents, headerLength,
+			 contents.length);
+
+	packet = new Packet(dstLink, srcLink, packetContents);
+    }
+    /**
+     * Allocate a new mail message to be sent, using the specified parameters.
+     *
+     * @param	socket		the socket
+     * @param	type
+     */
+    public MailMessage(Socket socket, MailMessage.Type type) throws MalformedPacketException {
+	transportFlags = new BitSet(4);
+	switch(type) {
+		case DATA:
+			throw new MalformedPacketException();
+			break;
+		case FIN:
+			transportFlags.set(finFlagIndex, true);
+			transportFlags.set(stpFlagIndex, false);
+			transportFlags.set(ackFlagIndex, false);
+			transportFlags.set(synFlagIndex, false);
+			break;
+		case STP:
+			transportFlags.set(finFlagIndex, false);
+			transportFlags.set(stpFlagIndex, true);
+			transportFlags.set(ackFlagIndex, false);
+			transportFlags.set(synFlagIndex, false);
+			break;
+		case ACK:
+			transportFlags.set(finFlagIndex, false);
+			transportFlags.set(stpFlagIndex, false);
+			transportFlags.set(ackFlagIndex, true);
+			transportFlags.set(synFlagIndex, false);
+			break;
+		case SYN:
+			transportFlags.set(finFlagIndex, false);
+			transportFlags.set(stpFlagIndex, false);
+			transportFlags.set(ackFlagIndex, false);
+			transportFlags.set(synFlagIndex, true);
+			break;
+		case SYNACK:
+			transportFlags.set(finFlagIndex, false);
+			transportFlags.set(stpFlagIndex, false);
+			transportFlags.set(ackFlagIndex, true);
+			transportFlags.set(synFlagIndex, true);
+			break;
+		case FINACK:
+			transportFlags.set(finFlagIndex, true);
+			transportFlags.set(stpFlagIndex, false);
+			transportFlags.set(ackFlagIndex, true);
+			transportFlags.set(synFlagIndex, false);
+			break;
+	}
+
+	seqno = 0;
+	contents = new byte[0];
+
+	this.socket = socket;
+	int dstLink = socket.getClientAddress();
+	int dstPort = socket.getClientPort();
+	int srcLink = socket.getHostAddress();
+	int srcPort = socket.getHostPort();
+	// make sure the paramters are valid
+	if (dstPort < 0 || dstPort >= portLimit ||
+	    srcPort < 0 || srcPort >= portLimit ||
+	    contents.length > maxContentsLength)
+	    throw new MalformedPacketException();
+
+	this.dstPort = (byte) dstPort;
+	this.srcPort = (byte) srcPort;
+
+	byte[] packetContents = new byte[headerLength + contents.length];
+
+	packetContents[0] = (byte) dstPort;
+	packetContents[1] = (byte) srcPort;
+	packetContents[2] = 0;
+	byte[] transportFlagsByte = toByteArray(transportFlags);
+	packetContents[3] = transportFlagsByte[0];
+	byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
+	for(int i = 0; i < 4; i++) {
+	    packetContents[4+i] = seqnoBytes[i];
+	}
 
 	System.arraycopy(contents, 0, packetContents, headerLength,
 			 contents.length);
@@ -118,6 +254,7 @@ public class MailMessage {
 
 	packet = new Packet(dstLink, srcLink, packetContents);
     }
+
     /**
      * Allocate a new mail message using the specified packet from the network.
      *
