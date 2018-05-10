@@ -2,6 +2,7 @@ package nachos.network;
 
 import nachos.threads.*;
 import java.util.Vector;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class Socket
 {
@@ -23,7 +24,7 @@ public class Socket
 	public Semaphore packetCredit; // need to enforce <= 16
 
 	public Vector<MailMessage> sendBuffer;
-	public MailMessage[] receiveBuffer;
+	public ArrayBlockingQueue<MailMessage> receiveBuffer;
 	public int seqnoIndex;
 
 	public Socket(int hostAddress, int hostPort, int clientAddress, int clientPort)
@@ -41,7 +42,7 @@ public class Socket
 		packetCredit = new Semaphore(WINDOW_SIZE);
 
 		sendBuffer = new Vector<MailMessage>();
-		receiveBuffer = new MailMessage[WINDOW_SIZE];
+		receiveBuffer = new ArrayBlockingQueue(WINDOW_SIZE);
 
 		seqnoIndex = 0;
 	}
