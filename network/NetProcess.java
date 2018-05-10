@@ -179,6 +179,8 @@ public class NetProcess extends UserProcess {
 
 			// Add the total bytes written from the writeVM function
 			bytesWritten += writeVirtualMemory(buffer, payload, i, payload.length);
+
+			// Increment i to the next block to be read
 			i += bytesWritten;
 		}
 
@@ -274,10 +276,13 @@ public class NetProcess extends UserProcess {
 			return openSocketDescriptor;
 		}
 
+		// Retrieve the mailMessage and make sure that it is a SYN Packet
 		MailMessage mail = postOffice.receive(port);
-		if(mail.isSyn()) {
+		if(mail.isSyn())
+		{
 			Socket mailSocket = mail.getSocket();
-			if(mailSocket.state == Socket.State.SYN_SENT) {
+			if(mailSocket.state == Socket.State.SYN_SENT)
+			{
 				Socket socket = new Socket(mailSocket.getClientAddress(), mailSocket.getClientPort(), mailSocket.getHostAddress(), mailSocket.getHostPort());
 
 				// Assign the openSocketDescriptor a Socket object that will listen for
@@ -302,6 +307,6 @@ public class NetProcess extends UserProcess {
 	}
 
     public boolean isInvalidSocketDescriptorIndex(int socketfd) {
-            return socketfd < 0 || socketfd >= 16 || socketDescriptor[socketfd] == null;
+        return socketfd < 0 || socketfd >= 16 || socketDescriptor[socketfd] == null;
     }
 }
