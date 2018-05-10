@@ -68,7 +68,7 @@ public class NetProcess extends UserProcess {
 	syscallRead = 6,
 	syscallWrite = 7,
 	syscallClose = 8;
-    
+
     /**
      * Handle a syscall exception. Called by <tt>handleException()</tt>. The
      * <i>syscall</i> argument identifies which syscall the user executed:
@@ -78,7 +78,7 @@ public class NetProcess extends UserProcess {
      * <tr><td>11</td><td><tt>int  connect(int host, int port);</tt></td></tr>
      * <tr><td>12</td><td><tt>int  accept(int port);</tt></td></tr>
      * </table>
-     * 
+     *
      * @param	syscall	the syscall number.
      * @param	a0	the first syscall argument.
      * @param	a1	the second syscall argument.
@@ -105,23 +105,30 @@ public class NetProcess extends UserProcess {
 
 	/**
 	 *
-	 * @param socket
-	 * @param buffer
-	 * @param port
+	 * @param socketfd the socket file descriptor
+	 * @param buffer the buffer to copy stuff from
+	 * @param port amount of stuff to write
 	 * @return The amount of bytes written, or -1 on error
 	 */
-	private int handleWrite(int socket, int buffer, int port) {
+	private int handleWrite(int socketfd, int buffer, int amount) {
 		return -1;
 	}
 
 	/**
 	 *
-	 * @param socket
-	 * @param buffer
-	 * @param port
+	 * @param socketfd the socket file descriptor
+	 * @param buffer the buffer to copy stuff into
+	 * @param port amount of stuff to read
 	 * @return The amount of bytes read, 0 on no bytes available, or -1 on error
 	 */
-	private int handleRead(int socket, int buffer, int port) {
+	private int handleRead(int socketfd, int buffer, int amount)
+	{
+		// Get the socket defined by the socket file descriptor
+		Socket socket = socketDescriptor[socketfd];
+
+		// We have to take the stuff from our receive buffer and put
+		//	it into the buffer passed into our thing
+
 		return -1;
 	}
 
@@ -141,7 +148,7 @@ public class NetProcess extends UserProcess {
 
 		// idk what to return here at the moment
 		return 0;
-    	}
+    }
 
 	/**
 	 * Attempt to initiate a new connection to the specified port on the specified
