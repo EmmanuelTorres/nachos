@@ -11,6 +11,9 @@ import java.nio.ByteBuffer;
  * @see	nachos.machine.Packet
  */
 public class MailMessage {
+	public enum Type {
+		DATA, FIN, STP, ACK, SYN, SYNACK, FINACK
+	}
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
      *
@@ -169,22 +172,41 @@ public class MailMessage {
 	return (!transportFlags.get(3)) && (!transportFlags.get(2)) && (!transportFlags.get(1)) && (!transportFlags.get(0));
     }
     public boolean isFin() {
-	return transportFlags.get(3);
+	return transportFlags.get(3) && (!transportFlags.get(2)) && (!transportFlags.get(1)) && (!transportFlags.get(0));
     }
     public boolean isStp() {
-	return transportFlags.get(2);
+	return (!transportFlags.get(3)) && transportFlags.get(2) && (!transportFlags.get(1)) && (!transportFlags.get(0));
     }
     public boolean isAck() {
-	return transportFlags.get(1);
+	return (!transportFlags.get(3)) && (!transportFlags.get(2)) && transportFlags.get(1) && (!transportFlags.get(0));
     }
     public boolean isSyn() {
-	return transportFlags.get(0);
+	return (!transportFlags.get(3)) && (!transportFlags.get(2)) && (!transportFlags.get(1)) && transportFlags.get(0);
     }
     public boolean isSynAck() {
-	return transportFlags.get(0) && transportFlags.get(1);
+	return (!transportFlags.get(3)) && (!transportFlags.get(2)) && transportFlags.get(1) && transportFlags.get(0);
     }
     public boolean isFinAck() {
-	return transportFlags.get(3) && transportFlags.get(1);
+	return transportFlags.get(3) && (!transportFlags.get(2)) && transportFlags.get(1) && (!transportFlags.get(0));
+    }
+    public Type getType() throws MalformedPacketException {
+	if(this.isData())
+		return MailMessage.Type.DATA;
+	else if(this.isFin())
+		return MailMessage.Type.FIN;
+	else if(this.isStp())
+		return MailMessage.Type.STP;
+	else if(this.isAck())
+		return MailMessage.Type.ACK;
+	else if(this.isSyn())
+		return MailMessage.Type.SYN;
+	else if(this.isSynAck())
+		return MailMessage.Type.SYNACK;
+	else if(this.isFinAck())
+		return MailMessage.Type.FINACK;
+	else
+		throw new MalformedPacketException();
+
     }
     public Socket getSocket() {
 	return socket;
