@@ -145,18 +145,25 @@ public class NetProcess extends UserProcess {
 	 */
 	private int handleRead(int socketfd, int buffer, int amount)
 	{
+		int bytesWritten = 0;
+
+		// check if the file descriptor is valid
+		if(socketfd > 15 || socketfd < 0)
+			return -1;
+
 		// Get the socket defined by the socket file descriptor
 		Socket socket = socketDescriptor[socketfd];
 
-		// Attempt to get the latest mail from the mailman
-		MailMessage mail = postOffice.receive(socket.srcPort);
-		if(mail == null)	// if mailman hasnt arrived yet then we
-			return -1;		// 	return zero
+		// ?????
+		//	Iterate through the buffer for the amount defined by the seqnoIndex
+		//	Nuke the array up to that point
+		for(int i = 0; i < socket.seqnoIndex; i++)
+		{
+			byte[] payload = socket.receiveBuffer[i].contents;
+			bytesWritten += writeVirtualMemory(buffer, payload, 0, amount);
+		}
 
-		// idk man i'm gonna guess we just pull the first one
-		byte[] payload = socket.receiveBuffer[0].contents;
-
-		return writeVirtualMemory(buffer, payload, 0, amount);
+		return bytesWritten;
 	}
 
 	/**
