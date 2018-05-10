@@ -9,6 +9,7 @@ import nachos.vm.*;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.util.HashMap;
+import java.util.Arrays;
 
 /**
  * A <tt>VMProcess</tt> that supports networking syscalls.
@@ -111,7 +112,27 @@ public class NetProcess extends UserProcess {
 	 * @return The amount of bytes written, or -1 on error
 	 */
 	private int handleWrite(int socketfd, int buffer, int amount) {
-		return -1;
+                // If the file fileDescriptor is null, we return -1
+                if (socketDescriptor[socketfd] == null) {
+                        return -1;
+                }
+
+		Socket socket = socketDescriptor[socketfd];
+	        byte[] temp = new byte[amount];
+
+                // Get the number of bytes read
+                int bytesRead = readVirtualMemory(buffer, temp, 0, amount);
+
+		for(int i = 0; i < amount;) {
+			int end = i + MailMessage.maxContentsLength;
+			if(end > amount) {
+				end = amount;
+			}
+			byte[] currentContents = Arrays.copyOfRange(temp, i, end);
+			socket.sendBuffer.add(new MailMessage(socket, ++socket.seqnoIndex, currentContents));
+		}
+
+		return amount;
 	}
 
 	/**
