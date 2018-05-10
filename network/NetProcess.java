@@ -111,24 +111,39 @@ public class NetProcess extends UserProcess {
 	 * @param port amount of stuff to write
 	 * @return The amount of bytes written, or -1 on error
 	 */
-	private int handleWrite(int socketfd, int buffer, int amount) {
+	private int handleWrite(int socketfd, int buffer, int amount)
+	{
+		// Boundary check to see if the provided file descriptor is valid
+		// Return error if the fileDescriptor is invalid
 		if(isInvalidSocketDescriptorIndex(socketfd))
 			return -1;
 
+		// Get the socket defined by the socket file descriptor
 		Socket socket = socketDescriptor[socketfd];
-	        byte[] temp = new byte[amount];
+        byte[] temp = new byte[amount];
 
-                // Get the number of bytes read
-                int bytesRead = readVirtualMemory(buffer, temp, 0, amount);
+        // Get the number of bytes read
+        int bytesRead = readVirtualMemory(buffer, temp, 0, amount);
 
-		for(int i = 0; i < amount;) {
+		// Writes from the buffer into the send buffer
+		for(int i = 0; i < amount;)
+		{
+			// Attempt to maximize the size of each MailMessage
 			int end = i + MailMessage.maxContentsLength;
+
+			// If it comes out too large, scale it to the size specified
 			if(end > amount) {
 				end = amount;
 			}
+
+			// Creates a copy of specific ranges from temp
 			byte[] currentContents = Arrays.copyOfRange(temp, i, end);
+
+			// Prep contents for transmission by adding into the socket's send buffer
 			socket.sendBuffer.add(new MailMessage(socket, ++socket.seqnoIndex, currentContents));
-			i = end++;
+
+			// jump to the start of the next block to be written
+			i = ++end;
 		}
 
 		return amount;
@@ -143,6 +158,8 @@ public class NetProcess extends UserProcess {
 	 */
 	private int handleRead(int socketfd, int buffer, int amount)
 	{
+		// Boundary check to see if the provided file descriptor is valid
+		// Return error if the fileDescriptor is invalid
 		if(isInvalidSocketDescriptorIndex(socketfd))
 			return -1;
 
@@ -151,12 +168,13 @@ public class NetProcess extends UserProcess {
 		// Get the socket defined by the socket file descriptor
 		Socket socket = socketDescriptor[socketfd];
 
-		// ?????
 		//	Iterate through the buffer for the amount defined by the seqnoIndex
-		//	Nuke the array up to that point
 		for(int i = 0; i < socket.seqnoIndex; i++)
 		{
+			//	Pop the message from the buffer and write it to VM
 			byte[] payload = socket.receiveBuffer.poll().contents;
+
+			// Add the total bytes written from the writeVM function
 			bytesWritten += writeVirtualMemory(buffer, payload, 0, amount);
 		}
 
