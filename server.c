@@ -4,16 +4,17 @@
 #include <stdlib.h>
 #include <strings.h>
 
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <unistd.h>
+
 void error(char *msg)
 {
     perror(msg);
 
 }
-
 
 int main(int argc, char *argv[])
 {
@@ -25,7 +26,7 @@ int main(int argc, char *argv[])
 
      // create the socket
      sockfd = socket(AF_INET, SOCK_STREAM, 0);
-     if (sockfd < 0) 
+     if (sockfd < 0)
         error("ERROR opening socket");
 
      // create a "struct sockaddr_in" to specify the server's IP, port, proto
@@ -37,7 +38,7 @@ int main(int argc, char *argv[])
 
      // bind the socket to the address in the "struct sockaddr_in"
      if (bind(sockfd, (struct sockaddr *) &serv_addr,
-              sizeof(serv_addr)) < 0) 
+              sizeof(serv_addr)) < 0)
               error("ERROR on binding");
 
      // tell the OS I'm willing to accept connections on the socket
@@ -45,12 +46,12 @@ int main(int argc, char *argv[])
 
      // wait for a connection to arrive from a client
      clilen = sizeof(cli_addr);
-     newsockfd = accept(sockfd, 
-                 (struct sockaddr *) &cli_addr, 
+     newsockfd = accept(sockfd,
+                 (struct sockaddr *) &cli_addr,
                  &clilen);
-     if (newsockfd < 0) 
+     if (newsockfd < 0)
           error("ERROR on accept");
-	  
+
 	while(1){
      // read some data from the client
     // bzero(buffer,256);
@@ -62,16 +63,14 @@ int main(int argc, char *argv[])
 		}
      // print out the message
      printf("Here is the message: '%s'\n",buffer);
-	 
+
      // write a response to the client
-     n = write(newsockfd, buffer, strlen(buffer) ); 
+     n = write(newsockfd, buffer, strlen(buffer) );
 	 bzero(buffer,256);
      if (n < 0) error("ERROR writing to socket");
      // close the socket  (optional; OS will do when process terminates)
-     
-	}	
+
+	}
 	close(sockfd);
-     return 0;	
+     return 0;
 }
-
-
