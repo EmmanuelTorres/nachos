@@ -130,6 +130,7 @@ public class NetProcess extends UserProcess {
 			}
 			byte[] currentContents = Arrays.copyOfRange(temp, i, end);
 			socket.sendBuffer.add(new MailMessage(socket, ++socket.seqnoIndex, currentContents));
+			i = end++;
 		}
 
 		return amount;
