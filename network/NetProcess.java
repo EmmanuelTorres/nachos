@@ -126,10 +126,15 @@ public class NetProcess extends UserProcess {
 		// Get the socket defined by the socket file descriptor
 		Socket socket = socketDescriptor[socketfd];
 
-		// We have to take the stuff from our receive buffer and put
-		//	it into the buffer passed into our thing
+		// Attempt to get the latest mail from the mailman
+		MailMessage mail = postOffice.receive(socket.srcPort);
+		if(mail == null)	// if mailman hasnt arrived yet then we
+			return -1;		// 	return zero
 
-		return -1;
+		// idk man i'm gonna guess we just pull the first one
+		byte[] payload = socket.receiveBuffer[0].contents;
+
+		return writeVirtualMemory(buffer, payload, 0, amount);
 	}
 
 	/**
