@@ -175,7 +175,7 @@ public class NetProcess extends UserProcess {
 			byte[] payload = socket.receiveBuffer.poll().contents;
 
 			// Add the total bytes written from the writeVM function
-			bytesWritten += writeVirtualMemory(buffer, payload, i, contents.length);
+			bytesWritten += writeVirtualMemory(buffer, payload, i, payload.length);
 			i += bytesWritten;
 		}
 
