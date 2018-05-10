@@ -285,9 +285,7 @@ public class NetProcess extends UserProcess {
 				postOffice.send(new MailMessage(socket, MailMessage.Type.SYNACK));
 
 				// Wake sleeping connect() thread
-				mailSocket.needAcceptLock.acquire();
 				mailSocket.needAccept.wake();
-				mailSocket.needAcceptLock.release();
 
 				// Update socket states
 				mailSocket.state = Socket.State.ESTABLISHED;
