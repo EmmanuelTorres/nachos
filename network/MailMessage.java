@@ -35,39 +35,44 @@ public class MailMessage {
     public MailMessage(int dstLink, int dstPort, int srcLink, int srcPort,
 		       boolean fin, boolean stp, boolean ack, boolean syn, int seqno,
 		       byte[] contents) throws MalformedPacketException {
-	// make sure the paramters are valid
-	if (dstPort < 0 || dstPort >= portLimit ||
-	    srcPort < 0 || srcPort >= portLimit ||
-	    contents.length > maxContentsLength)
-	    throw new MalformedPacketException();
+		// make sure the paramters are valid
+		if (dstPort < 0 || dstPort >= portLimit ||
+		    srcPort < 0 || srcPort >= portLimit ||
+		    contents.length > maxContentsLength)
+		    throw new MalformedPacketException();
 
-	this.dstPort = (byte) dstPort;
-	this.srcPort = (byte) srcPort;
-	transportFlags = new BitSet(4);
-	transportFlags.set(3, fin);
-	transportFlags.set(2, stp);
-	transportFlags.set(1, ack);
-	transportFlags.set(0, syn);
-	this.seqno = seqno;
-	this.contents = contents;
+		// Define the incoming and outgoing ports to be used
+		this.dstPort = (byte) dstPort;
+		this.srcPort = (byte) srcPort;
 
-	byte[] packetContents = new byte[headerLength + contents.length];
+		// Initialize the set to determine the type of packet
+		transportFlags = new BitSet(4);
+		transportFlags.set(3, fin);
+		transportFlags.set(2, stp);
+		transportFlags.set(1, ack);
+		transportFlags.set(0, syn);
 
-	packetContents[0] = (byte) dstPort;
-	packetContents[1] = (byte) srcPort;
-	packetContents[2] = 0;
-	byte[] transportFlagsByte = toByteArray(transportFlags);
-	packetContents[3] = transportFlagsByte[0];
-	byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
-	for(int i = 0; i < 4; i++) {
-	    packetContents[4+i] = seqnoBytes[i];
-	}
-	
+		this.seqno = seqno;
+		this.contents = contents;
 
-	System.arraycopy(contents, 0, packetContents, headerLength,
-			 contents.length);
+		// Fill up the packetcontents with the array in the format provided
+		//	in the nachos transport protocol specs
+		byte[] packetContents = new byte[headerLength + contents.length];
+		packetContents[0] = (byte) dstPort;
+		packetContents[1] = (byte) srcPort;
+		packetContents[2] = 0;
+		byte[] transportFlagsByte = toByteArray(transportFlags);
+		packetContents[3] = transportFlagsByte[0];
+		byte[] seqnoBytes = ByteBuffer.allocate(4).putInt(seqno).array();
+		for(int i = 0; i < 4; i++) {
+		    packetContents[4+i] = seqnoBytes[i];
+		}
 
-	packet = new Packet(dstLink, srcLink, packetContents);
+
+		System.arraycopy(contents, 0, packetContents, headerLength,
+				 contents.length);
+
+		packet = new Packet(dstLink, srcLink, packetContents);
     }
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
@@ -76,7 +81,9 @@ public class MailMessage {
      * @param	seqno
      * @param	contents
      */
-    public MailMessage(Socket socket, int seqno, byte[] contents) {
+    public MailMessage(Socket socket, int seqno, byte[] contents)
+	{
+	// Initialize the set to determine the type of packet
 	transportFlags = new BitSet(4);
 	transportFlags.set(finFlagIndex, false);
 	transportFlags.set(stpFlagIndex, false);
@@ -86,12 +93,14 @@ public class MailMessage {
 	this.seqno = seqno;
 	this.contents = contents;
 
+	// Initialize the socket
 	this.socket = socket;
 	int dstLink = socket.getClientAddress();
 	int dstPort = socket.getClientPort();
 	int srcLink = socket.getHostAddress();
 	int srcPort = socket.getHostPort();
 
+	// Define the incoming and outgoing ports to be used
 	this.dstPort = (byte) dstPort;
 	this.srcPort = (byte) srcPort;
 
@@ -249,7 +258,7 @@ public class MailMessage {
 	for(int i = 0; i < 4; i++) {
 	    packetContents[4+i] = seqnoBytes[i];
 	}
-	
+
 
 	System.arraycopy(contents, 0, packetContents, headerLength,
 			 contents.length);
@@ -264,7 +273,7 @@ public class MailMessage {
      */
     public MailMessage(Packet packet) throws MalformedPacketException {
 	this.packet = packet;
-	
+
 	// make sure we have a valid header
 	if (packet.contents.length < headerLength ||
 	    packet.contents[0] < 0 || packet.contents[0] >= portLimit ||
@@ -383,6 +392,6 @@ public class MailMessage {
     /**
      * The upper limit on mail ports. All ports fall between <tt>0</tt> and
      * <tt>portLimit - 1</tt>.
-     */    
+     */
     public static final int portLimit = 128;
 }
