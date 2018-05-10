@@ -274,6 +274,7 @@ public class MailMessage {
 	dstPort = packet.contents[0];
 	srcPort = packet.contents[1];
 	byte[] transportFlagsByte = {packet.contents[3]};
+	transportFlags = new BitSet(4);
 	for(int i = 0; i < 4; i++) {
 	    transportFlags.set(i,((transportFlagsByte[0] & (byte)(0x1 << i)) >> i) == 0);
 	}
