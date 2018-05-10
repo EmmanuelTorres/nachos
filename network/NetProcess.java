@@ -172,7 +172,10 @@ public class NetProcess extends UserProcess {
 		for(int i = 0; i < amount;)
 		{
 			//	Pop the message from the buffer and write it to VM
-			byte[] payload = socket.receiveBuffer.poll().contents;
+			MailMessage mail = socket.receiveBuffer.poll();
+			if(mail == null)
+				break;
+			byte[] payload = mail.contents;
 
 			// Add the total bytes written from the writeVM function
 			bytesWritten += writeVirtualMemory(buffer, payload, i, payload.length);

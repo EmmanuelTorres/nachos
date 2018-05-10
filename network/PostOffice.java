@@ -65,6 +65,7 @@ public class PostOffice {
 		case SYN:
 			break;
 		case SYNACK:
+			mail.socket.needAccept.wake();
 			break;
 		case ACK:
 			mail.socket.packetCredit.V();
