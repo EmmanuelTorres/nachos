@@ -169,13 +169,14 @@ public class NetProcess extends UserProcess {
 		Socket socket = socketDescriptor[socketfd];
 
 		//	Iterate through the buffer for the amount defined by the seqnoIndex
-		for(int i = 0; i < socket.seqnoIndex; i++)
+		for(int i = 0; i < amount;)
 		{
 			//	Pop the message from the buffer and write it to VM
 			byte[] payload = socket.receiveBuffer.poll().contents;
 
 			// Add the total bytes written from the writeVM function
-			bytesWritten += writeVirtualMemory(buffer, payload, 0, amount);
+			bytesWritten += writeVirtualMemory(buffer, payload, i, contents.length);
+			i += bytesWritten;
 		}
 
 		return bytesWritten;
