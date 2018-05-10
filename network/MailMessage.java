@@ -14,10 +14,10 @@ public class MailMessage {
 	public enum Type {
 		DATA, FIN, STP, ACK, SYN, SYNACK, FINACK
 	}
-	public static final finFlagIndex = 3;
-	public static final stpFlagIndex = 2;
-	public static final ackFlagIndex = 1;
-	public static final synFlagIndex = 0;
+	public static final int finFlagIndex = 3;
+	public static final int stpFlagIndex = 2;
+	public static final int ackFlagIndex = 1;
+	public static final int synFlagIndex = 0;
     /**
      * Allocate a new mail message to be sent, using the specified parameters.
      *
@@ -128,7 +128,6 @@ public class MailMessage {
 	switch(type) {
 		case DATA:
 			throw new MalformedPacketException();
-			break;
 		case FIN:
 			transportFlags.set(finFlagIndex, true);
 			transportFlags.set(stpFlagIndex, false);
