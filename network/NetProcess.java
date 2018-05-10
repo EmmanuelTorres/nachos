@@ -159,7 +159,7 @@ public class NetProcess extends UserProcess {
 		//	Nuke the array up to that point
 		for(int i = 0; i < socket.seqnoIndex; i++)
 		{
-			byte[] payload = socket.receiveBuffer[i].contents;
+			byte[] payload = socket.receiveBuffer.poll().contents;
 			bytesWritten += writeVirtualMemory(buffer, payload, 0, amount);
 		}
 
