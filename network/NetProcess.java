@@ -112,10 +112,8 @@ public class NetProcess extends UserProcess {
 	 * @return The amount of bytes written, or -1 on error
 	 */
 	private int handleWrite(int socketfd, int buffer, int amount) {
-                // If the file fileDescriptor is null, we return -1
-                if (socketDescriptor[socketfd] == null) {
-                        return -1;
-                }
+		if(isInvalidSocketDescriptorIndex(socketfd))
+			return -1;
 
 		Socket socket = socketDescriptor[socketfd];
 	        byte[] temp = new byte[amount];
@@ -145,11 +143,10 @@ public class NetProcess extends UserProcess {
 	 */
 	private int handleRead(int socketfd, int buffer, int amount)
 	{
-		int bytesWritten = 0;
-
-		// check if the file descriptor is valid
-		if(socketfd > 15 || socketfd < 0)
+		if(isInvalidSocketDescriptorIndex(socketfd))
 			return -1;
+
+		int bytesWritten = 0;
 
 		// Get the socket defined by the socket file descriptor
 		Socket socket = socketDescriptor[socketfd];
@@ -174,6 +171,9 @@ public class NetProcess extends UserProcess {
 	 * @return
 	 */
 	private int handleClose(int s) {
+		if(isInvalidSocketDescriptorIndex(s))
+			return -1;
+
 		// All bounds should have been checked by this point, so no need
 		//  to redundantly check again
 		Socket socket = socketDescriptor[s];
@@ -280,4 +280,8 @@ public class NetProcess extends UserProcess {
 		}
 		return -1;
 	}
+
+        public boolean isInvalidSocketDescriptorIndex(int socketfd) {
+                return socketfd < 0 || socketfd >= 16 || socketDescriptor[socketfd] == null;
+        }
 }
