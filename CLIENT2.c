@@ -1,3 +1,5 @@
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,7 +72,7 @@ int unlimitedSZMessage(int sockfd)
         {
 			pStr = "User has disconnected";
 			write(sockfd,pStr,22);
-			pthread_join(MTREAD , NULL);
+			pthread_join(multi_thread_read , NULL);
 			close(sockfd);
 
 			return 0;
@@ -144,3 +146,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
